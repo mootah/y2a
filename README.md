@@ -73,6 +73,9 @@ y2a -i <video_id>
   - `image`
   - `url`
 
+<img alt="front" src="https://i.gyazo.com/0a6c164d7358ffce9c89386710d7f99b.png" width="400">
+<img alt="back" src="https://i.gyazo.com/ce9f9a5551d9ab114b6ba37f9b01ed1f.png" width="400">
+
 ## 運用方法
 
 ### 表面
