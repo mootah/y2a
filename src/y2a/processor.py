@@ -77,7 +77,7 @@ def convert_words_into_segments(doc: Doc, timed_words: list[TimedWord]) -> list[
     segments = []
     for sent in sentences:
         cnt = 0
-        for i in range(1, len(words[pos:])):
+        for i in range(1, len(words[pos:]) + 1):
             part = " ".join(words[pos:pos+i])
             if not part in sent:
                 break
