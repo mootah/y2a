@@ -1,0 +1,22 @@
+[project]
+name = "y2a"
+version = "0.1.0"
+description = "Create an Anki deck from a YouTube video."
+readme = "README.md"
+authors = [
+    { name = "mootah", email = "44580337+mootah@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "genanki>=0.13.1",
+    "pip>=25.2",
+    "rich>=14.1.0",
+    "spacy>=3.8.7",
+]
+
+[project.scripts]
+y2a = "y2a.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8.22,<0.9.0"]
+build-backend = "uv_build"

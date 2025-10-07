@@ -1,0 +1,109 @@
+import os, argparse
+from datetime import timedelta
+
+from rich import print
+
+from .utils import write_in_vtt
+from .downloader import download
+from .processor import convert_subs_into_lines
+from .extractor import extract_media
+from .generator import generate_apkg
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Create a Anki deck from a YouTube video.")
+    parser.add_argument(
+        "-i", default="",
+        help="video id")
+    parser.add_argument(
+        "--mp4", default="",
+        help="mp4 file path")
+    parser.add_argument(
+        "--vtt", default="",
+        help="vtt file path (default: <video_name>.en-orig.vtt)")
+    parser.add_argument(
+        "--archive", default="",
+        help="txt file path. a list of archived sentences")
+    parser.add_argument(
+        "--make_vtt", action="store_true",
+        help="create a vtt file (default: False)")
+    parser.add_argument(
+        "--make_tsv", action="store_true",
+        help="create a tsv file (default: False)")
+    parser.add_argument(
+        "--make_json", action="store_true",
+        help="create a json file (default: False)")
+    parser.add_argument(
+        "--dry", action="store_true",
+        help="dry run (default: False)")
+    parser.add_argument(
+        "--verbose", action="store_true",
+        help="print verbosely (default: False)")
+    parser.add_argument(
+        "--cut", default="comma,pause",
+        help="cutting sentences by (comma, pause) (default: \"comma,pause\")")
+    parser.add_argument(
+        "--max_duration", default=12, type=int,
+        help="maximum duration to cut (seconds) (default: 12)")
+    parser.add_argument(
+        "--min_words", default=8, type=int,
+        help="minimum words length to cut (default: 8)")
+    parser.add_argument(
+        "--pad_start", default=100, type=int,
+        help="padding for start timing of a line (milliseconds) (default: 100)")
+    parser.add_argument(
+        "--pad_end", default=25, type=int,
+        help="padding for end timing of a line (milliseconds) (default: 25)")
+
+    args = parser.parse_args()
+    video_id = args.i
+    video_path = args.mp4
+    subs_path = video_path.replace(".mp4",".en-orig.vtt")
+
+    if not video_id and not video_path:
+        print("[red][ERROR][/]", "You need to provide video_id or video_path.")
+        exit(1)
+
+    if not video_id and video_path:
+        video_id, _ = os.path.splitext(os.path.basename(video_path))
+
+    os.makedirs(video_id, exist_ok=True)
+
+    if video_id and not video_path:
+        print()
+        print("[green][TASK] [0/3][/]", "Downloading the video and its subtitle...")
+        download(video_id)
+        video_path = f"{video_id}/{video_id}.mp4"
+        subs_path = f"{video_id}/{video_id}.en-orig.vtt"
+
+    if args.vtt:
+        subs_path = args.vtt
+
+    config = {
+        "video_id": video_id,
+        "video_path": video_path,
+        "is_dry": args.dry,
+        "is_verbose": args.verbose,
+        "makes_vtt": args.make_vtt,
+        "makes_tsv": args.make_tsv,
+        "makes_json": args.make_json,
+        "archive_path": args.archive,
+        "cutting": args.cut,
+        "duration_limit": timedelta(seconds=args.max_duration),
+        "words_limit": args.min_words,
+        "pad_start": timedelta(milliseconds=args.pad_start),
+        "pad_end": timedelta(milliseconds=args.pad_end),
+    }
+
+    print()
+    print("[green][TASK] [1/3][/]", "Converting subs to lines...")
+    lines = convert_subs_into_lines(subs_path, config)
+    print()
+    print("[green][TASK] [2/3][/]", "Extracting mp3 and jpg...")
+    media = extract_media(lines, config)
+    print()
+    print("[green][TASK] [3/3][/]", "Generating Anki package...")
+    generate_apkg(lines, media, config)
+
+
