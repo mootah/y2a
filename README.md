@@ -4,11 +4,11 @@ YouTube の動画をセリフ単位で切り出して Anki デッキにするプ
 
 A program that splits YouTube videos into individual dialogue segments and generates Anki flashcards
 
-## 依存環境（Dependencies）
+## 依存関係（Dependencies）
 
-- (uv)[https://github.com/astral-sh/uv]
-- (ffmpeg)[https://www.ffmpeg.org/]
-- (yt-dlp)[https://github.com/yt-dlp/yt-dlp]
+- [uv](https://github.com/astral-sh/uv)
+- [ffmpeg](https://www.ffmpeg.org/)
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 
 ## インストール（Installation）
 
@@ -30,7 +30,7 @@ y2a -i <video_id>
 
 2025 年上旬くらい以降の、次の要件を満たした動画（自動生成字幕）にのみ対応している
 
-- 句読点がある
+- パンクチュエーションがある
 - 単語毎のタイムスタンプがある
 
 セリフの切り出しは次の手順で行っている
@@ -41,7 +41,7 @@ y2a -i <video_id>
 
 ## 生成されるカード（Card）
 
-### フィールド
+### フィールド（Field）
 
 - `id`
   - `{VIDEO_ID}_{HH.mm.ss.mmm}-{HH.mm.ss.mmm}`
@@ -60,7 +60,7 @@ y2a -i <video_id>
 - `url`
   - タイムスタンプ付きの YouTube の URL
 
-### テンプレート
+### テンプレート（Template）
 
 - 表
   - `image`
