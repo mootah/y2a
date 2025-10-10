@@ -52,7 +52,9 @@ def write_in_vtt(file_path: str, lines: list[Line]):
     for start, end, sentence in lines:
         start_str = format_time(start, delim=":")
         end_str = format_time(end, delim=":")
-        output.append(f"{start_str} --> {end_str}\n{sentence}\n")
+        output.append(f"{start_str} --> {end_str}")
+        output.append(f"{sentence}")
+        output.append(f"{sentence}\n")
 
     with open(file_path, "w", encoding="utf-8") as f:
         for row in output:

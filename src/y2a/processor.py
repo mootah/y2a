@@ -57,9 +57,12 @@ def convert_subs_into_words(subs: list[str]) -> list[TimedWord]:
                     continue
                 if word.startswith("["):
                     continue
+
                 # 単語あたりの最大の時間
                 max_word_delta = timedelta(seconds=2)
-                if word_end - word_start > max_word_delta:
+                if " " in word:
+                    pass
+                elif word_end - word_start > max_word_delta:
                     word_end = word_start + max_word_delta
                 timed_words.append((word_start, word_end, word))
         i += 1
