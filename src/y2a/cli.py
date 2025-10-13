@@ -57,48 +57,45 @@ def main():
         help="padding for end timing of a line (milliseconds) (default: 25)")
 
     args = parser.parse_args()
-    video_id = args.i
-    video_path = args.mp4
-    subs_path = video_path.replace(".mp4",".en-orig.vtt")
 
-    if not video_id and not video_path:
+    config = {
+        "video_id":       args.i,
+        "video_path":     args.mp4,
+        "subs_path":      args.mp4.replace(".mp4", ".en-orig.vtt"),
+        "is_dry":         args.dry,
+        "is_verbose":     args.verbose,
+        "makes_vtt":      args.make_vtt,
+        "makes_tsv":      args.make_tsv,
+        "makes_json":     args.make_json,
+        "archive_path":   args.archive,
+        "cutting":        args.cut,
+        "duration_limit": timedelta(seconds=args.max_duration),
+        "words_limit":    args.min_words,
+        "pad_start":      timedelta(milliseconds=args.pad_start),
+        "pad_end":        timedelta(milliseconds=args.pad_end),
+    }
+
+
+    if not config["video_id"] and not config["video_path"]:
         print("[red][ERROR][/]", "You need to provide video_id or video_path.")
         exit(1)
 
-    if not video_id and video_path:
-        video_id, _ = os.path.splitext(os.path.basename(video_path))
+    if not config["video_id"] and config["video_path"]:
+        config["video_id"], _ = os.path.splitext(os.path.basename(config["video_path"]))
 
-    os.makedirs(video_id, exist_ok=True)
+    os.makedirs(config["video_id"], exist_ok=True)
 
-    if video_id and not video_path:
+    if config["video_id"] and not config["video_path"]:
         print()
         print("[green][TASK] [0/3][/]", "Downloading the video and its subtitle...")
-        download(video_id)
-        video_path = f"{video_id}/{video_id}.mp4"
-        subs_path = f"{video_id}/{video_id}.en-orig.vtt"
+        config["video_path"], config["subs_path"] = download(config["video_id"], config)
 
     if args.vtt:
-        subs_path = args.vtt
-
-    config = {
-        "video_id": video_id,
-        "video_path": video_path,
-        "is_dry": args.dry,
-        "is_verbose": args.verbose,
-        "makes_vtt": args.make_vtt,
-        "makes_tsv": args.make_tsv,
-        "makes_json": args.make_json,
-        "archive_path": args.archive,
-        "cutting": args.cut,
-        "duration_limit": timedelta(seconds=args.max_duration),
-        "words_limit": args.min_words,
-        "pad_start": timedelta(milliseconds=args.pad_start),
-        "pad_end": timedelta(milliseconds=args.pad_end),
-    }
+        config["subs_path"] = args.vtt
 
     print()
     print("[green][TASK] [1/3][/]", "Converting subs to lines...")
-    lines = convert_subs_into_lines(subs_path, config)
+    lines = convert_subs_into_lines(config["subs_path"], config)
     print()
     print("[green][TASK] [2/3][/]", "Extracting mp3 and jpg...")
     media = extract_media(lines, config)

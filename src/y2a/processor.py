@@ -190,8 +190,11 @@ def reflect_archive(lines: list[Line], config):
 
     file_path = config["archive_path"]
     archives = []
-    with open(file_path, "r", encoding="utf-8") as f:
-        archives = f.read().splitlines()
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            archives = f.read().splitlines()
+    except:
+        print("[yellow][WARNING][/]", f"file not found: {file_path}")
     
     print("[cyan][INFO][/]", f"{len(archives):,} lines found in archive.")
 
@@ -207,7 +210,7 @@ def reflect_archive(lines: list[Line], config):
         with open(file_path, "w", encoding="utf-8") as f:
             for sent in archives:
                 f.write(sent + "\n")
-        print("[cyan][INFO][/]", f"{file_path} updated.")
+        print("[cyan][INFO][/]", f"archive updated: {file_path}")
 
     return reflected
 
@@ -232,6 +235,9 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
     for seg in segments:
         segments_by_jump += split_by_jump(seg, config)
     segments = segments_by_jump
+
+    if config["is_verbose"]:
+        print_longest_segment(segments)
 
     if "comma" in config["cutting"]:
         print("[cyan][INFO][/]", "Cutting by comma...")
@@ -291,5 +297,12 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
     if config["makes_vtt"]:
         video_id = config["video_id"]
         write_in_vtt(f"{video_id}/{video_id}.out.vtt", lines)
+
+    if config["is_verbose"]:
+        nopunc = len([s for _, _, s in lines if not s.endswith((".", ",", "?", "!"))])
+        print()
+        print("[magenta][VERBOSE][/]", f"{nopunc} lines have no punctuation")
+        
+        
 
     return lines
