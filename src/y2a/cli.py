@@ -102,10 +102,10 @@ def main():
         config["subs_path"] = args.vtt
 
     print()
-    print("[green][TASK] [1/3][/]", "Converting subs to lines...")
+    print("[green][TASK] [1/3][/]", "Converting subs into segments...")
     lines = convert_subs_into_lines(config["subs_path"], config)
     print()
-    print("[green][TASK] [2/3][/]", "Extracting mp3 and jpg...")
+    print("[green][TASK] [2/3][/]", "Extracting media files...")
     media = extract_media(lines, config)
     print()
     print("[green][TASK] [3/3][/]", "Generating Anki package...")
