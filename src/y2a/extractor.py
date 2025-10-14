@@ -31,30 +31,35 @@ def extract_media(lines: list[Line], config):
         height = 320
 
         # jpg
-        img_out = os.path.join(out_dir, f"{base_name}.jpg")
-        if not os.path.exists(img_out):
+        img_path = os.path.join(out_dir, f"{base_name}.jpg")
+        if not os.path.exists(img_path):
             try:
-                p = subprocess.run([
+                cmd = [
                     "ffmpeg", "-y",
                     "-ss", str(start.total_seconds()),
                     "-i", video_path,
-                    "-loglevel", "quiet",
                     "-filter_complex",
                     f"scale=iw*sar:ih,scale='min({width},iw)*sar':'min({height},ih)':out_color_matrix=bt601:out_range=pc",
                     "-vframes", "1",
                     "-qscale:v", "2",
-                    img_out
-                ])
+                ]
+
+                if not config["is_debug"]:
+                    cmd += ["-loglevel", "quiet"]
+
+                cmd.append(img_path)
+
+                p = subprocess.run(cmd)
             except FileNotFoundError:
                 print("[red][ERROR][/]", "Command not found: ffmpeg")
                 exit(1)
-        media_files.append(img_out)
+        media_files.append(img_path)
 
         # mp3
-        audio_out = os.path.join(out_dir, f"{base_name}.mp3")
-        if not os.path.exists(audio_out):
+        audio_path = os.path.join(out_dir, f"{base_name}.mp3")
+        if not os.path.exists(audio_path):
             try:
-                p = subprocess.run([
+                cmd = [
                     "ffmpeg", "-y",
                     "-ss", str(start.total_seconds()),
                     "-t", str(duration),
@@ -66,11 +71,17 @@ def extract_media(lines: list[Line], config):
                     "-ac","1",
                     "-c:a", "libmp3lame",
                     "-b:a", "64",
-                    audio_out
-                ])
+                ]
+
+                if not config["is_debug"]:
+                    cmd += ["-loglevel", "quiet"]
+
+                cmd.append(audio_path)
+
+                p = subprocess.run(cmd)
             except FileNotFoundError:
                 print("[red][ERROR][/]", "Command not found: ffmpeg")
                 exit(1)
-        media_files.append(audio_out)
+        media_files.append(audio_path)
 
     return media_files

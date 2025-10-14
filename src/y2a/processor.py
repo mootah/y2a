@@ -3,7 +3,7 @@ from datetime import timedelta
 from importlib import import_module
 
 from rich import print
-from rich.progress import track
+from rich.progress import track, Progress
 from spacy.tokens.doc import Doc
 
 from .types import TimedWord, Segment, Line
@@ -222,8 +222,12 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
 
     timed_words = convert_subs_into_words(subs)
     print("[cyan][INFO][/]", "Analyzing text...")
+
     nlp = load_spacy("en_core_web_sm")
-    doc = nlp(" ".join(w for _, _, w in timed_words))
+
+    with Progress() as p:
+        p.add_task("Analyzing", total=None)
+        doc = nlp(" ".join(w for _, _, w in timed_words))
 
     if config["is_verbose"]:
         print_token_count(doc)

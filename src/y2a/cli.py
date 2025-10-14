@@ -41,6 +41,9 @@ def main():
         "--verbose", action="store_true",
         help="print verbosely (default: False)")
     parser.add_argument(
+        "--debug", action="store_true",
+        help="debug mode (default: False)")
+    parser.add_argument(
         "--cut", default="comma,pause",
         help="cutting sentences by (comma, pause) (default: \"comma,pause\")")
     parser.add_argument(
@@ -64,6 +67,7 @@ def main():
         "subs_path":      args.mp4.replace(".mp4", ".en-orig.vtt"),
         "is_dry":         args.dry,
         "is_verbose":     args.verbose,
+        "is_debug":       args.debug,
         "makes_vtt":      args.make_vtt,
         "makes_tsv":      args.make_tsv,
         "makes_json":     args.make_json,
