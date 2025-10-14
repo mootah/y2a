@@ -1,9 +1,11 @@
-import re, csv, json, collections
+import os, re, csv, json, collections
 from datetime import timedelta
 from importlib import import_module
 
 from rich import print
+from rich.progress import Progress
 import spacy
+from spacy.tokens import DocBin
 from spacy.tokens.doc import Doc
 
 from .types import Line, Segment
@@ -18,6 +20,30 @@ def load_spacy(model_name: str, **kwargs) -> spacy.Language:
 
     return model_module.load(**kwargs)
 
+
+def get_spacy_document(text: str, config) -> Doc:
+    video_id = config["video_id"]
+    file_path = f"{video_id}/{video_id}.spacy"
+    nlp = load_spacy("en_core_web_sm")
+
+    if os.path.exists(file_path):
+        print("[cyan][INFO][/]", "Loading spacy documents...")
+        loaded_bin = DocBin().from_disk(file_path)
+        doc = list(loaded_bin.get_docs(nlp.vocab))[0]
+        return doc
+
+    print("[cyan][INFO][/]", "Analyzing text...")
+    doc = None
+    with Progress() as p:
+        p.add_task("Analyzing", total=None)
+        doc = nlp(text)
+
+    if config["makes_spacy"]:
+        docbin = DocBin()
+        docbin.add(doc)
+        docbin.to_disk(file_path)
+   
+    return doc
 
 def parse_time(srt_time: str) -> timedelta:
     """

@@ -26,6 +26,9 @@ def main():
         "--archive", default="",
         help="txt file path. a list of archived sentences")
     parser.add_argument(
+        "--make_spacy", action="store_true",
+        help="create a spacy document binary (default: False)")
+    parser.add_argument(
         "--make_vtt", action="store_true",
         help="create a vtt file (default: False)")
     parser.add_argument(
@@ -68,6 +71,7 @@ def main():
         "is_dry":         args.dry,
         "is_verbose":     args.verbose,
         "is_debug":       args.debug,
+        "makes_spacy":    args.make_spacy,
         "makes_vtt":      args.make_vtt,
         "makes_tsv":      args.make_tsv,
         "makes_json":     args.make_json,

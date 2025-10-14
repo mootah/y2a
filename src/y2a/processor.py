@@ -8,7 +8,7 @@ from spacy.tokens.doc import Doc
 
 from .types import TimedWord, Segment, Line
 from .utils import (
-    load_spacy,
+    get_spacy_document,
     parse_time,
     format_time,
     write_in_vtt,
@@ -221,13 +221,9 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
         subs = f.readlines()
 
     timed_words = convert_subs_into_words(subs)
-    print("[cyan][INFO][/]", "Analyzing text...")
 
-    nlp = load_spacy("en_core_web_sm")
-
-    with Progress() as p:
-        p.add_task("Analyzing", total=None)
-        doc = nlp(" ".join(w for _, _, w in timed_words))
+    text = " ".join(w for _, _, w in timed_words)
+    doc = get_spacy_document(text, config)
 
     if config["is_verbose"]:
         print_token_count(doc)
