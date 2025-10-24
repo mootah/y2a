@@ -11,6 +11,7 @@ from .utils import (
     get_spacy_document,
     parse_time,
     format_time,
+    write_in_txt,
     write_in_vtt,
     print_longest_segment,
     print_token_count,
@@ -206,7 +207,7 @@ def reflect_archive(lines: list[Line], config):
 
     print("[cyan][INFO][/]", f"{len(reflected):,} lines left.")
 
-    if not config["is_dry"]:
+    if not config["no_archive_update"]:
         with open(file_path, "w", encoding="utf-8") as f:
             for sent in archives:
                 f.write(sent + "\n")
@@ -262,24 +263,28 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
 
         if config["is_verbose"]:
             print_longest_segment(segments)
-
-    print("[cyan][INFO][/]", "Removing duplicates...")
+    
+    # merge each segment into a sentence
     lines = []
-    sentences = []
     for seg in segments:
         starts, ends, words = zip(*seg)
-
         seg_start = starts[0]
         seg_end   = ends[-1]
         sentence = " ".join(words)
-
-        if sentence in sentences:
-            continue
-
-        sentences.append(sentence)
         lines.append((seg_start, seg_end, sentence))
 
-    print("[cyan][INFO][/]", f"{len(lines):,} segments left.")
+    # remove dups
+    if not config["keeps_dups"]:
+        print("[cyan][INFO][/]", "Removing duplicates...")
+        unique_lines = []
+        unique_sents = set()
+        for start, end, sentence in lines:
+            if sentence in unique_sents:
+                continue
+            unique_lines.append((start, end, sentence))
+            unique_sents.add(sentence)
+        lines = unique_lines
+        print("[cyan][INFO][/]", f"{len(lines):,} segments left.")
 
     # reflect archive
     if config["archive_path"]:
@@ -298,11 +303,21 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
         video_id = config["video_id"]
         write_in_vtt(f"{video_id}/{video_id}.out.vtt", lines)
 
+    if config["makes_txt"]:
+        video_id = config["video_id"]
+        write_in_txt(f"{video_id}/{video_id}.out.txt", lines)
+
+    if config["is_verbose"]:
+        duras = [e - s for s, e, _ in lines]
+        total = sum(duras, timedelta())
+        print()
+        print("[magenta][VERBOSE][/]", f"{format_time(total, delim=':')} in total")
+
     if config["is_verbose"]:
         nopunc = len([s for _, _, s in lines if not s.endswith((".", ",", "?", "!"))])
         print()
         print("[magenta][VERBOSE][/]", f"{nopunc} lines have no punctuation")
         
-        
-
     return lines
+
+

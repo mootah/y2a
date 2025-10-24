@@ -74,12 +74,16 @@ def write_in_vtt(file_path: str, lines: list[Line]):
     """
     vtt output
     """
-    output = []
+    output = [
+        "WEBVTT",
+        "Kind: captions",
+        "Language: en\n",
+    ]
     for start, end, sentence in lines:
         start_str = format_time(start, delim=":")
         end_str = format_time(end, delim=":")
         output.append(f"{start_str} --> {end_str}")
-        output.append(f"{sentence}")
+        # output.append(f"{sentence}")
         output.append(f"{sentence}\n")
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -87,6 +91,16 @@ def write_in_vtt(file_path: str, lines: list[Line]):
             f.write(row + "\n")
 
     print("[cyan][INFO][/]", f"vtt created: {file_path}")
+
+
+def write_in_txt(file_path: str, lines: list[Line]):
+    """
+    txt output
+    """
+    sents = [s for _, _, s in lines]
+    with open(file_path, "w", encoding="utf-8") as f:
+        for s in sents:
+            f.write(s + "\n")
 
 
 def write_in_tsv(file_path: str, rows: list[str]):

@@ -26,8 +26,11 @@ def main():
         "--archive", default="",
         help="txt file path. a list of archived sentences")
     parser.add_argument(
-        "--make_spacy", action="store_true",
-        help="create a spacy document binary (default: False)")
+        "--no_archive_update", action="store_true",
+        help="not update the archive file (default: False)")
+    parser.add_argument(
+        "--make_txt", action="store_true",
+        help="create a txt file (default: False)")
     parser.add_argument(
         "--make_vtt", action="store_true",
         help="create a vtt file (default: False)")
@@ -37,6 +40,9 @@ def main():
     parser.add_argument(
         "--make_json", action="store_true",
         help="create a json file (default: False)")
+    parser.add_argument(
+        "--make_spacy", action="store_true",
+        help="create a spacy document binary (default: False)")
     parser.add_argument(
         "--dry", action="store_true",
         help="dry run (default: False)")
@@ -49,6 +55,9 @@ def main():
     parser.add_argument(
         "--cut", default="comma,pause",
         help="cutting sentences by (comma, pause) (default: \"comma,pause\")")
+    parser.add_argument(
+        "--keep_dups", action="store_true",
+        help="keep duplicate sentences (default: False)")
     parser.add_argument(
         "--max_duration", default=12, type=int,
         help="maximum duration to cut (seconds) (default: 12)")
@@ -65,22 +74,25 @@ def main():
     args = parser.parse_args()
 
     config = {
-        "video_id":       args.i,
-        "video_path":     args.mp4,
-        "subs_path":      args.mp4.replace(".mp4", ".en-orig.vtt"),
-        "is_dry":         args.dry,
-        "is_verbose":     args.verbose,
-        "is_debug":       args.debug,
-        "makes_spacy":    args.make_spacy,
-        "makes_vtt":      args.make_vtt,
-        "makes_tsv":      args.make_tsv,
-        "makes_json":     args.make_json,
-        "archive_path":   args.archive,
-        "cutting":        args.cut,
-        "duration_limit": timedelta(seconds=args.max_duration),
-        "words_limit":    args.min_words,
-        "pad_start":      timedelta(milliseconds=args.pad_start),
-        "pad_end":        timedelta(milliseconds=args.pad_end),
+        "video_id":          args.i,
+        "video_path":        args.mp4,
+        "subs_path":         args.mp4.replace(".mp4", ".en-orig.vtt"),
+        "is_dry":            args.dry,
+        "is_verbose":        args.verbose,
+        "is_debug":          args.debug,
+        "makes_txt":         args.make_txt,
+        "makes_vtt":         args.make_vtt,
+        "makes_tsv":         args.make_tsv,
+        "makes_json":        args.make_json,
+        "makes_spacy":       args.make_spacy,
+        "archive_path":      args.archive,
+        "no_archive_update": args.no_archive_update,
+        "cutting":           args.cut,
+        "keeps_dups":        args.keep_dups,
+        "duration_limit":    timedelta(seconds=args.max_duration),
+        "words_limit":       args.min_words,
+        "pad_start":         timedelta(milliseconds=args.pad_start),
+        "pad_end":           timedelta(milliseconds=args.pad_end),
     }
 
 
