@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "mootah", email = "44580337+mootah@users.noreply.github.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.12, <3.13"
 dependencies = [
     "genanki>=0.13.1",
     "pip>=25.2",
