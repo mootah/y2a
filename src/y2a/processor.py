@@ -1,12 +1,11 @@
-import os, subprocess, re
+import re
 from datetime import timedelta
-from importlib import import_module
 
 from rich import print
-from rich.progress import track, Progress
+from rich.progress import track
 from spacy.tokens.doc import Doc
 
-from .types import TimedWord, Segment, Line
+from .entity import TimedWord, Segment, Line
 from .utils import (
     get_spacy_document,
     parse_time,
@@ -15,7 +14,11 @@ from .utils import (
     write_in_vtt,
     print_longest_segment,
     print_token_count,
-    print_segment
+)
+from .splitter import (
+    split_by_semantics,
+    split_by_jump,
+    split_by_pause
 )
 
 
@@ -73,117 +76,49 @@ def convert_subs_into_words(subs: list[str]) -> list[TimedWord]:
     return timed_words
 
 
-def convert_words_into_segments(doc: Doc, timed_words: list[TimedWord]) -> list[Segment]:
-    words = [w for _, _, w in timed_words]
-    sentences = [sent.text.strip() for sent in doc.sents]
+def convert_words_into_segments(doc: Doc, timed_words: list[TimedWord], config) -> list[Segment]:
+    """
+    Convert timed_words and sentences from doc into segments.
+    Handles cases where words span multiple tokens (e.g., "one of").
+    For each sentence, find the minimal timed_words subsequence that covers it.
+    """
+    # timed_words_list = list(timed_words)
+    words_list = [w for _, _, w in timed_words]
+    words_len = len(words_list)
+    sentences = split_by_semantics(doc, config)
 
-    pos = 0
     segments = []
-    for sent in sentences:
-        cnt = 0
-        for i in range(1, len(words[pos:]) + 1):
-            part = " ".join(words[pos:pos+i])
-            if not part in sent:
-                break
-            cnt = i
-        seg = list(timed_words[pos:pos+cnt])
-        if len(seg):
-            segments.append(seg)
-        pos += cnt
+    pos = 0  # Current position in timed_words_list
+
+    for sent in track(sentences, description="Splitting"):
+        sent_text = sent.strip()
+        
+        # Find the minimal range of timed_words that covers this sentence
+        # by concatenating words until we match or exceed the sentence text
+        best_cnt = 0
+        for i in range(1, words_len - pos + 1):
+            # Concatenate words[pos:pos+i] with spaces
+            candidate_text = " ".join(words_list[pos:pos+i])
+            
+            # Check if sent_text is a substring of candidate_text (or vice versa check containment)
+            # We want the minimal i such that sent_text is covered
+            if sent_text in candidate_text or candidate_text.strip().startswith(sent_text):
+                best_cnt = i
+                # Check if we've captured at least the full sentence
+                if sent_text in candidate_text:
+                    break
+
+        # If we found a match, use those words
+        if best_cnt > 0:
+            seg = list(timed_words[pos:pos + best_cnt])
+            if len(seg):
+                segments.append(seg)
+            pos += best_cnt
+        else:
+            # Fallback: move forward by 1 to avoid infinite loop
+            pos += 1
 
     return segments
-
-
-def split_by_jump(segment: Segment, config) -> list[Segment]:
-    """
-    タイムスタンプの切れ目で分割する
-    """
-    segments = []
-    current_seg = []
-    length = len(segment)
-
-    for i, (start, end, word) in enumerate(segment):
-        current_seg.append((start, end, word))
-        if i + 1 < length and segment[i + 1][0] - end > timedelta(seconds=2):
-            segments.append(current_seg)
-            current_seg = []
-    if current_seg:
-        segments.append(current_seg)
-
-    return segments
-
-
-def split_by_pause(segment: Segment, config) -> list[Segment]:
-    """
-    単語間の時間が最も長い箇所で分割する
-    """
-
-    if len(segment) < config["words_limit"]:
-        return [segment]
-
-    seg_start = segment[0][0]
-    seg_end   = segment[-1][1]
-    seg_delta = seg_end - seg_start
-
-    if seg_delta < config["duration_limit"]:
-        return [segment]
-
-    prev_start = segment[0][0]
-    max_delta = timedelta(seconds=0)
-    cutting_point = 0
-
-    for i, (start, end, _) in enumerate(segment):
-        cur_delta = start - prev_start
-        prev_start = start
-        if max_delta < cur_delta:
-            if min(len(segment) - i, i) >= config["words_limit"]:
-                max_delta = cur_delta
-                cutting_point = i
-
-    if cutting_point == 0 or cutting_point == len(segment):
-        return [segment]
-
-    # return [segment[:cutting_point], segment[cutting_point:]]
-    # 目的の長さになるまで再帰実行
-    left  = split_by_pause(segment[:cutting_point], config)
-    right = split_by_pause(segment[cutting_point:], config)
-
-    return left + right
-
-
-def split_by_comma(segment: Segment, config) -> list[Segment]:
-    """
-    最長部分列が最短になるようにカンマ位置で分割する
-    """
-    if len(segment) < config["words_limit"]:
-        return [segment]
-
-    seg_start = segment[0][0]
-    seg_end   = segment[-1][1]
-    seg_delta = seg_end - seg_start
-
-    if seg_delta < config["duration_limit"]:
-        return [segment]
-
-    seg_middle = seg_start + (seg_delta / 2)
-    max_delta = seg_delta
-    cutting_point = 0
-    for i, (start, end, word) in enumerate(segment):
-        if word.endswith(","):
-            cur_delta = abs(end - seg_middle)
-            if max_delta >= cur_delta:
-                max_delta = cur_delta
-                cutting_point = i + 1
-
-    if min(len(segment) - cutting_point, cutting_point) < config["words_limit"]:
-        return [segment]
-
-    # return [segment[:cutting_point], segment[cutting_point:]]
-    # 目的の長さになるまで再帰実行
-    left  = split_by_pause(segment[:cutting_point], config)
-    right = split_by_pause(segment[cutting_point:], config)
-
-    return left + right
 
 
 def reflect_archive(lines: list[Line], config):
@@ -229,7 +164,7 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
     if config["is_verbose"]:
         print_token_count(doc)
 
-    segments    = convert_words_into_segments(doc, timed_words)
+    segments    = convert_words_into_segments(doc, timed_words, config)
     print("[cyan][INFO][/]", f"{len(segments):,} sentences detected.")
 
     segments_by_jump = []
@@ -240,17 +175,17 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
     if config["is_verbose"]:
         print_longest_segment(segments)
 
-    if "comma" in config["cutting"]:
-        print("[cyan][INFO][/]", "Cutting by comma...")
-        segments_by_comma = []
-        for seg in segments:
-            segments_by_comma += split_by_comma(seg, config)
-        segments = segments_by_comma
-
-        print("[cyan][INFO][/]", f"{len(segments_by_comma):,} segments generated.")
-
-        if config["is_verbose"]:
-            print_longest_segment(segments)
+    # if "comma" in config["cutting"]:
+    #     print("[cyan][INFO][/]", "Cutting by comma...")
+    #     segments_by_comma = []
+    #     for seg in segments:
+    #         segments_by_comma += split_by_comma(seg, config)
+    #     segments = segments_by_comma
+    #
+    #     print("[cyan][INFO][/]", f"{len(segments_by_comma):,} segments generated.")
+    #
+    #     if config["is_verbose"]:
+    #         print_longest_segment(segments)
 
     if "pause" in config["cutting"]:
         print("[cyan][INFO][/]", "Cutting by pause...")
@@ -309,6 +244,26 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
 
     if config["is_verbose"]:
         duras = [e - s for s, e, _ in lines]
+        
+        max_sec = int(config["duration_limit"].total_seconds())
+        dura_counts = [0 for _ in range(max_sec)]
+        over_max_sec = 0
+        
+        for d in duras:
+            found = False
+            for i in range(len(dura_counts)):
+                if d <= timedelta(seconds=i+1):
+                    dura_counts[i] += 1
+                    found = True
+                    break
+            if not found:
+                over_max_sec += 1
+
+        print()
+        for i, d in enumerate(dura_counts):
+            print("[magenta][VERBOSE][/]", f"~ {i+1} sec: {d:,} lines")
+        print("[magenta][VERBOSE][/]", f"{max_sec} sec ~: {over_max_sec:,} lines")
+
         total = sum(duras, timedelta())
         print()
         print("[magenta][VERBOSE][/]", f"{format_time(total, delim=':')} in total")
@@ -317,7 +272,7 @@ def convert_subs_into_lines(subs_path: str, config) -> list[Line]:
         nopunc = len([s for _, _, s in lines if not s.endswith((".", ",", "?", "!"))])
         print()
         print("[magenta][VERBOSE][/]", f"{nopunc} lines have no punctuation")
-        
+
     return lines
 
 

@@ -3,7 +3,7 @@ import os, random
 from rich import print
 import genanki
 
-from .types import Line
+from .entity import Line
 from .utils import format_time, write_in_tsv, write_in_json
 
 
@@ -31,6 +31,7 @@ def load_template():
 def generate_apkg(lines: list[Line], media: list[str], config):
     video_id = config["video_id"]
     rows = []
+    dicts = []
     for start, end, sentence in lines:
         start_str = format_time(start)
         end_str = format_time(end)
@@ -54,6 +55,17 @@ def generate_apkg(lines: list[Line], media: list[str], config):
             url
         ])
 
+        dicts.append({
+            "id":          note_id,
+            "sentence":    sentence,
+            "translation": translation,
+            "notes":       notes,
+            "audio":       audio,
+            "audio_file":  audio_file,
+            "image":       image_tag,
+            "url":         url
+        })
+
     if config["is_dry"]:
         print("[yellow][DRY][/]", "Skipped.")
 
@@ -61,7 +73,7 @@ def generate_apkg(lines: list[Line], media: list[str], config):
         write_in_tsv(f"{video_id}/{video_id}.tsv", rows)
 
     if config["makes_json"]:
-        write_in_json(f"{video_id}/{video_id}.json", rows)
+        write_in_json(f"{video_id}/{video_id}.json", dicts)
 
     if config["is_dry"]:
         return

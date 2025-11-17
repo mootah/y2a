@@ -52,18 +52,18 @@ def main():
     parser.add_argument(
         "--debug", action="store_true",
         help="debug mode (default: False)")
-    parser.add_argument(
-        "--cut", default="comma,pause",
-        help="cutting sentences by (comma, pause) (default: \"comma,pause\")")
+    # parser.add_argument(
+    #     "--cut", default="comma,pause",
+    #     help="cutting sentences by (comma, pause) (default: \"comma,pause\")")
     parser.add_argument(
         "--keep_dups", action="store_true",
         help="keep duplicate sentences (default: False)")
     parser.add_argument(
-        "--max_duration", default=12, type=int,
-        help="maximum duration to cut (seconds) (default: 12)")
+        "--max_duration", default=8, type=int,
+        help="maximum duration to cut (seconds) (default: 6)")
     parser.add_argument(
-        "--min_words", default=8, type=int,
-        help="minimum words length to cut (default: 8)")
+        "--min_words", default=5, type=int,
+        help="minimum words length to cut (default: 5)")
     parser.add_argument(
         "--pad_start", default=100, type=int,
         help="padding for start timing of a line (milliseconds) (default: 100)")
@@ -87,7 +87,8 @@ def main():
         "makes_spacy":       args.make_spacy,
         "archive_path":      args.archive,
         "no_archive_update": args.no_archive_update,
-        "cutting":           args.cut,
+        # "cutting":           args.cut,
+        "cutting":           "pause",
         "keeps_dups":        args.keep_dups,
         "duration_limit":    timedelta(seconds=args.max_duration),
         "words_limit":       args.min_words,

@@ -8,7 +8,7 @@ import spacy
 from spacy.tokens import DocBin
 from spacy.tokens.doc import Doc
 
-from .types import Line, Segment
+from .entity import Line, Segment
 
 
 def load_spacy(model_name: str, **kwargs) -> spacy.Language:
@@ -22,7 +22,7 @@ def load_spacy(model_name: str, **kwargs) -> spacy.Language:
 
 
 def get_spacy_document(text: str, config) -> Doc:
-    video_id = config["video_id"]
+    video_id = config.get("video_id")
     file_path = f"{video_id}/{video_id}.spacy"
     nlp = load_spacy("en_core_web_sm")
 
@@ -38,7 +38,7 @@ def get_spacy_document(text: str, config) -> Doc:
         p.add_task("Analyzing", total=None)
         doc = nlp(text)
 
-    if config["makes_spacy"]:
+    if config.get("makes_spacy"):
         docbin = DocBin()
         docbin.add(doc)
         docbin.to_disk(file_path)

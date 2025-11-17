@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich import print
 from rich.progress import track, Progress
 
-from .types import Line
+from .entity import Line
 from .utils import format_time
 
 procs = set()
