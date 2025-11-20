@@ -1,0 +1,100 @@
+<div class="pane">
+  {{#image}}
+  <div class="section">
+    <div class="image">{{image}}</div>
+  </div>
+  <hr />
+  {{/image}}
+  <div class="section">
+    <!-- -->
+    {{^audio_file}}
+    <div class="center">{{audio}}</div>
+    {{/audio_file}}
+    <!-- -->
+    {{#audio_file}}
+    <div class="center">
+      <audio controls autoplay preload="meta" id="audio">
+        <source src="{{text:audio_file}}" type="audio/mp3" />
+      </audio>
+      <div class="buttonGroup grid pt8">
+        <div class="button" id="btn100">
+          <span>x1.00</span>
+        </div>
+        <div class="button" id="btn075">
+          <span>x0.75</span>
+        </div>
+        <div class="button" id="btn050">
+          <span>x0.50</span>
+        </div>
+        <div class="button" id="btn025">
+          <span>x0.25</span>
+        </div>
+      </div>
+    </div>
+    {{/audio_file}}
+    <!-- -->
+  </div>
+</div>
+<script>
+  var audio = document.getElementById("audio");
+
+  var btn025 = document.getElementById("btn025");
+  var btn050 = document.getElementById("btn050");
+  var btn075 = document.getElementById("btn075");
+  var btn100 = document.getElementById("btn100");
+
+  function play(rate) {
+    return function () {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.playbackRate = rate;
+      audio.play();
+    };
+  }
+
+  // var userJs1 = play(1.0);
+  // var userJs2 = play(0.75);
+  // var userJs3 = play(0.5);
+  // var userJs4 = play(0.25);
+
+  btn025.addEventListener("click", play(0.25), false);
+  btn050.addEventListener("click", play(0.5), false);
+  btn075.addEventListener("click", play(0.75), false);
+  btn100.addEventListener("click", play(1.0), false);
+
+  document.addEventListener("keypress", function (event) {
+    var key = event.key || event.keyCode;
+    switch (key) {
+      case "(":
+        play(0.25)();
+        break;
+      case "[":
+        play(0.5)();
+        break;
+      case "]":
+        play(0.75)();
+        break;
+      case "^":
+        play(0.5)();
+        break;
+      case "$":
+        play(0.75)();
+        break;
+      case ")":
+        play(1.0)();
+        break;
+      case "ArrowUp":
+        play(0.25)();
+        break;
+      case "ArrowLeft":
+        play(0.5)();
+        break;
+      case "ArrowDown":
+        play(0.75)();
+        break;
+      case "ArrowRight":
+        play(1.0)();
+        break;
+    }
+  });
+</script>

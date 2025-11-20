@@ -2,9 +2,8 @@ import os, sys, random, subprocess, multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich import print
 from rich.progress import track, Progress
-
-from .entity import Line
-from .utils import format_time
+from y2a.entity import Line
+from y2a.utils import format_time
 
 procs = set()
 
@@ -55,7 +54,8 @@ def extract_segment(ss, t, video_path, audio_path, seg_image_path, seg_audio_pat
     if not is_debug:
         cmd_image += ["-loglevel", "quiet"]
 
-    p = subprocess.run(cmd_image, check=True)
+    if not os.path.exists(seg_image_path):
+        p = subprocess.run(cmd_image, check=True)
 
     cmd_audio = [
         "ffmpeg", "-y",
@@ -72,16 +72,20 @@ def extract_segment(ss, t, video_path, audio_path, seg_image_path, seg_audio_pat
     if not is_debug:
         cmd_audio += ["-loglevel", "quiet"]
 
-    p = subprocess.run(cmd_audio, check=True)
+    if not os.path.exists(seg_audio_path):
+        p = subprocess.run(cmd_audio, check=True)
 
 
-def extract_media(lines: list[Line], config):
-    video_id = config["video_id"]
-    video_path = config["video_path"]
-    is_debug = config["is_debug"]
+def extract(lines: list[Line], config):
+    video_id = config.get("video_id")
+    video_path = config.get("video_path")
+    is_debug = config.get("is_debug")
 
-    if config["is_dry"]:
+    if config.get("is_dry"):
         print("[yellow][DRY][/]", "Skipped.")
+        return []
+    if not "apkg" in config.get("formats"):
+        print("[cyan][INFO][/]", "Skipped.")
         return []
 
     audio_path = extract_audio(video_path, is_debug)
@@ -99,7 +103,7 @@ def extract_media(lines: list[Line], config):
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         try:
             futures = []
-            for start, end, sentence in lines:
+            for start, end, _ in lines:
                 base_name = f"{video_id}_{format_time(start)}-{format_time(end)}"
                 seg_image_path = os.path.join(out_dir, f"{base_name}.jpg")
                 seg_audio_path = os.path.join(out_dir, f"{base_name}.mp3")

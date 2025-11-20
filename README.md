@@ -1,8 +1,22 @@
 # Y2A: YouTube to Anki
 
-YouTube の動画をセリフ単位で切り出して Anki デッキにするプログラム
+YouTube の動画を、妥当な位置でセグメントに分割して Anki デッキにするプログラム
 
-A program that splits YouTube videos into individual dialogue segments and generates Anki flashcards
+A program to segment YouTube videos at reasonable points and convert them into Anki decks
+
+## 特徴（Features）
+
+次の要件を満たした自動生成字幕がある動画にのみ対応している
+
+- 英語
+- 単語毎のタイムスタンプがある（YouTube上で一語ずつ現れる）
+- 句読点がある（2025年の中旬以降に投稿された動画）
+
+セリフの切り出しは以下の3段階で行っている
+
+- 句読点等の表記に基づいた文の切れ目（sentence boundaries）
+- 等位接続節や副詞節等の構文の切れ目（grammatical boundaries）
+- タイムスタンプに基づく発話の切れ目（speech boundaries）
 
 ## 依存関係（Dependencies）
 
@@ -18,26 +32,54 @@ uv tool install git+https://github.com/mootah/y2a
 
 ## 使い方（Usage）
 
+ヘルプ
+
 ```zsh
 y2a -h
 ```
 
+動画IDを指定してAnkiパッケージを生成する
+
 ```zsh
-y2a -i <video_id>
+y2a video_id
 ```
 
-## 特徴（Features）
+mp4ファイルとvttファイルを直接指定する
 
-2025 年上旬くらい以降の、次の要件を満たした動画（自動生成字幕）にのみ対応している
+```zsh
+y2a path/to/video.mp4 -s path/to/sub.vtt
+```
 
-- パンクチュエーションがある
-- 単語毎のタイムスタンプがある
+csv, json, txtファイルも一緒に生成する
 
-セリフの切り出しは次の手順で行っている
+```zsh
+y2a video_id -f csv -f json -f txt -f apkg
+```
 
-- spaCy を用いた文末検知
-- 長過ぎる場合はカンマの位置で分割（オプション）
-- 長過ぎる場合は発言の切れ目で分割（オプション）
+整形した字幕ファイルを生成する（asbplayer等で使用するため）
+
+```zsh
+y2a video_id -f vtt --margin 0 0 --keep_dups
+```
+
+文末でのみ分割する
+
+```zsh
+y2a video_id --boundary sentence
+```
+
+セグメント前後の余白を調整する
+
+```zsh
+y2a video_id --margin 200 100
+```
+
+セグメントの長さを調節する
+
+```zsh
+y2a video_id --max_duration 5000 --min_words 3
+```
+
 
 ## 生成されるカード（Card）
 
@@ -75,45 +117,3 @@ y2a -i <video_id>
 
 <img alt="front" src="https://i.gyazo.com/0a6c164d7358ffce9c89386710d7f99b.png" width="400">
 <img alt="back" src="https://i.gyazo.com/ce9f9a5551d9ab114b6ba37f9b01ed1f.png" width="400">
-
-## 運用方法
-
-### 表面
-
-以下の項目を確認する。
-
-- 音レベルで聞き取れるか
-  - 音素、音韻変化を認識できるか
-  - リズム、イントネーションを認識できるか
-- 意味レベルで聞き取れるか
-  - 単語、表現の内容をイメージできるか
-  - 聞きながらに（立ち返らずに）解釈ができるか
-  - 文脈を想起できるか
-- リピーティングできるか
-  - 聞いた英文を脳内に保持（リテンション）できるか
-  - 発言にイメージが伴っているか
-  - 音素、音韻変化、リズム、イントネーションを再現できるか
-
-必要に応じてスロー再生する。
-
-出来にかかわらず、基本的に「Good（正解）」を押す
-
-ただし、上記確認事項について全く歯が立たない、あるいは練習した記憶がない等の場合は、「Again（もう一度）」を押しても良い
-
-### 裏面
-
-リピーティングの練習をする
-
-まずは英文を見て、自分が内容をイメージできるスピードで音読する（一語ずつゆっくりで良い）
-
-同様のスピードで、英文を見ずに声に出す
-
-音源を聞いて（スローからで良い）リピーティングし、発音等を確認する
-
-オリジナルのスピードに口を慣らす
-
-調べたことや気付きは何でもメモする
-
-余裕があればパターンプラクティスを行う
-
-

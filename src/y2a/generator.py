@@ -3,8 +3,8 @@ import os, random
 from rich import print
 import genanki
 
-from .entity import Line
-from .utils import format_time, write_in_tsv, write_in_json
+from y2a.entity import Line
+from y2a.utils import format_time
 
 
 def read(file_path: str) -> str:
@@ -14,11 +14,11 @@ def read(file_path: str) -> str:
     return text
 
 
-def load_template():
+def load_templates():
     template_path = os.path.join(os.path.dirname(__file__), "template")
 
-    front_path = os.path.join(template_path, "front.html")
-    back_path  = os.path.join(template_path, "back.html")
+    front_path = os.path.join(template_path, "front.template.anki")
+    back_path  = os.path.join(template_path, "back.template.anki")
     style_path = os.path.join(template_path, "style.css")
 
     front = read(front_path)
@@ -28,10 +28,8 @@ def load_template():
     return front, back, style
 
 
-def generate_apkg(lines: list[Line], media: list[str], config):
-    video_id = config["video_id"]
-    rows = []
-    dicts = []
+def create_cards(lines: list[Line], video_id) -> list[dict]:
+    cards = []
     for start, end, sentence in lines:
         start_str = format_time(start)
         end_str = format_time(end)
@@ -44,18 +42,7 @@ def generate_apkg(lines: list[Line], media: list[str], config):
         image_tag   = f"<img src=\"{note_id}.jpg\">"
         url         = f"https://www.youtube.com/watch?v={video_id}&start={start.seconds}&end={end.seconds}"
 
-        rows.append([
-            note_id,
-            sentence,
-            translation,
-            notes,
-            audio,
-            audio_file,
-            image_tag,
-            url
-        ])
-
-        dicts.append({
+        cards.append({
             "id":          note_id,
             "sentence":    sentence,
             "translation": translation,
@@ -65,21 +52,13 @@ def generate_apkg(lines: list[Line], media: list[str], config):
             "image":       image_tag,
             "url":         url
         })
+        
+    return cards
 
-    if config["is_dry"]:
-        print("[yellow][DRY][/]", "Skipped.")
 
-    if config["makes_tsv"]:
-        write_in_tsv(f"{video_id}/{video_id}.tsv", rows)
-
-    if config["makes_json"]:
-        write_in_json(f"{video_id}/{video_id}.json", dicts)
-
-    if config["is_dry"]:
-        return
-
-    front, back, style = load_template()
-
+def write_in_apkg(rows: list[list], media: list[str], video_id):
+    front, back, style = load_templates()
+    
     model = genanki.Model(
         1759125590781,
         "SentenceMining",
@@ -102,13 +81,6 @@ def generate_apkg(lines: list[Line], media: list[str], config):
         ],
         css=style,
     )
-    # templates=[
-    #     {
-    #         "name": "Repeating",
-    #         "qfmt": "{{audio}}<br>{{image}}",
-    #         "afmt": "{{FrontSide}}<hr id=answer>{{sentence}}<br>{{image}}<br><a href=\"{{url}}\">YouTube</a>",
-    #     },
-    # ],
 
     deck_id = random.randrange(1 << 30, 1 << 31)
 
@@ -130,6 +102,21 @@ def generate_apkg(lines: list[Line], media: list[str], config):
     apkg_path = f"{video_id}/{video_id}.apkg"
     package.write_to_file(apkg_path)
     
-    print("[cyan][INFO][/]", f"Anki package created: {apkg_path}")
+    print("[cyan][INFO][/]", f"[green]Anki package created: {apkg_path}")
 
 
+def generate(lines: list[Line], media: list[str], config) -> list[dict]:
+    video_id = config.get("video_id")
+    cards = create_cards(lines, video_id)
+
+    if config.get("is_dry"):
+        print("[yellow][DRY][/]", "Skipped.")
+        return cards
+    if not "apkg" in config.get("formats"):
+        print("[cyan][INFO][/]", "Skipped.")
+        return cards
+
+    rows = [list(c.values()) for c in cards]
+    write_in_apkg(rows, media, video_id)
+    
+    return cards

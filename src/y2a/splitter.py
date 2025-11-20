@@ -2,19 +2,37 @@ import re
 from datetime import timedelta
 from spacy.tokens import Token
 from spacy.tokens.doc import Doc
-from rich.progress import track
-from .entity import Segment
+from rich import print
+from y2a.entity import Segment
 
 # 副詞節を導く従属接続詞（分割対象）
 SUBORDINATORS = {
     "because", "cuz", "coz", "although",
-    # "though", "even", "even though", "even if",
     "if", "unless",
     "when", "while", "before", "after", "since", "until", "till",
-    # "as soon as", "so that", "in order that"
 }
 
-END_PUNCT = {".", "?", "!"}
+def is_nominal_clause_marker(token: Token):
+    norm = token.text.lower()
+    if norm not in {"that", "if", "whether"}:
+        return False
+
+    # 従属接続詞でない場合は除外（関係副詞などを区別）
+    if token.dep_ != "mark":
+        return False
+
+    head = token.head
+
+    # 名詞節の条件：節が動詞の補語になっている
+    if head.dep_ in {"ccomp", "xcomp", "obj"}:
+        return True
+
+    # 動詞に直接ぶら下がり、副詞節ではなく補語の場合
+    if head.pos_ == "VERB" and head.dep_ not in {"advcl"}:
+        return True
+
+    return False
+
 
 def is_clause_level_cc(token: Token):
     """等位接続詞（and, but, or）が節レベルかどうか判定"""
@@ -42,26 +60,46 @@ def is_clause_level_cc(token: Token):
     return False  # 句レベル（cats and dogs 等）
 
 
-def get_split_indices(doc: Doc, config) -> set:
-    """
-    文書 `doc` から分割位置のインデックスを返す。
-    - 終端句読点はその位置で分割
-    - `mark`（because 等）と節レベルの `cc` は前のトークンで分割
-    - カンマはその位置で分割
-    - 重複や逆順にならないよう昇順で返す
-    """
+def get_sentence_boundaries(doc: Doc) -> set:
     split_points = set()
+    
+    # 通常のsentence boundary
+    for sent in doc.sents:
+        if sent.end < len(doc):
+            split_points.add(sent.end - 1)
+    
+    # ダブルクオーテーションペアの処理
+    quote_indices = [i for i, t in enumerate(doc) if t.text == '"']
+    
+    # ペアで処理（奇数番目=開始、偶数番目=終了）
+    for i in range(0, len(quote_indices) - 1, 2):
+        opening_idx = quote_indices[i]
+        closing_idx = quote_indices[i + 1]
+        
+        # 開始クオーテーション直前で分割
+        if opening_idx > 0:
+            split_points.add(opening_idx - 1)
+        
+        # 終了クオーテーション直後で分割
+        if closing_idx < len(doc) - 1:
+            split_points.add(closing_idx)
+
+    return split_points
+
+
+def get_grammatical_boundaries(doc: Doc) -> set:
+    split_points = set()
+    
     for i, t in enumerate(doc):
         candidate = False
-        # 終端句読点
-        if t.text in END_PUNCT:
-            split_idx = i
-            candidate = True
-        # mark（副詞節導入語）: because 等（英字のみで判定）
-        elif t.dep_ == "mark":
+
+        if is_nominal_clause_marker(t): # 名詞節（補文）
+            candidate = False
+        elif t.dep_ == "mark": # 副詞節導入語 ( because 等)
             lower = t.text.lower()
             lower = re.sub(r'[^a-zA-Z]', '', lower)
-            if lower in SUBORDINATORS:
+            # if lower in SUBORDINATORS:
+            if lower not in {"as", "that", "though"}:
                 # 通常は mark の直前で分割（ただし同一文内に限る）
                 try:
                     sent = t.sent
@@ -98,18 +136,28 @@ def get_split_indices(doc: Doc, config) -> set:
     return split_points
 
 
-def split_by_semantics(doc: Doc, config):
-    min_words = config["words_limit"]
+def split_at_doc_boundaries(doc: Doc, config) -> list[str]:
+    min_words = config.get("min_words")
     
-    split_points = list(get_split_indices(doc, config))
-    split_points.sort()
+    if "sentence" in config.get("boundaries"):
+        print("[cyan][INFO][/]", "Splitting at the sentence boundaries ...")
+        sentence_boundaries = get_sentence_boundaries(doc)
+        print("[cyan][INFO][/]", f"\t-> {len(sentence_boundaries) + 1:,} segments.")
+    else:
+        sentence_boundaries = set()
+        
+    if "grammar" in config.get("boundaries"):
+        print("[cyan][INFO][/]", "Splitting at the grammatical boundaries ...")
+        grammatical_boundaries = get_grammatical_boundaries(doc)
+    else:
+        grammatical_boundaries = set()
+    
+    split_points = sorted(sentence_boundaries | grammatical_boundaries)
 
     segments = []
     last = 0
 
     for i, idx in enumerate(split_points):
-        # 文節候補（idx はセグメントの最後のトークンの index）
-        cur_token = doc[idx]
         seg_tokens = doc[last:idx+1]
         
         if i + 1 < len(split_points):
@@ -117,111 +165,105 @@ def split_by_semantics(doc: Doc, config):
         else:
             next_tokens = doc[idx+1:]
 
-        # 文末パンクチュエーション（ピリオド等）は従来通りその位置で分割
-        if cur_token.text in END_PUNCT:
+        is_sentence_boundary = idx in sentence_boundaries
+        
+        if is_sentence_boundary:
+            # 文末境界: 最小語数チェックなしで分割
             segments.append(seg_tokens.text)
             last = idx + 1
-            continue
-
-        # 最小語数チェック（現在の seg と次の seg 両方）
-        if len(seg_tokens) >= min_words and len(next_tokens) >= min_words:
-            segments.append(seg_tokens.text)
-            last = idx + 1
+        else:
+            # 文法的分割: 現在のセグメントと次のセグメント両方の最小語数をチェック
+            if len(seg_tokens) >= min_words and len(next_tokens) >= min_words:
+                segments.append(seg_tokens.text)
+                last = idx + 1
     
     # 最後の部分を追加
     if last < len(doc):
         segments.append(doc[last:].text)
+    
+    if "grammar" in config.get("boundaries"):
+        print("[cyan][INFO][/]", f"\t-> {len(segments) + 1:,} segments.")
 
     return segments
 
 
-def split_by_jump(segment: Segment, config) -> list[Segment]:
-    """
-    タイムスタンプの切れ目で分割する
-    """
-    segments = []
-    current_seg = []
-    length = len(segment)
+def split_at_speech_boundaries(segments: list[Segment], config) -> list[Segment]:
+    print("[cyan][INFO][/]", "Splitting at the speech boundareis ...")
 
-    for i, (start, end, word) in enumerate(segment):
-        current_seg.append((start, end, word))
-        if i + 1 < length and segment[i + 1][0] - end > timedelta(seconds=2):
-            segments.append(current_seg)
-            current_seg = []
-    if current_seg:
-        segments.append(current_seg)
+    min_words = config.get("min_words")
+    max_duration= config.get("max_duration")
 
-    return segments
+    def _split(segment: Segment) -> list[Segment]:
+        """
+        単語の時間が最も長い箇所で分割する
+        """
 
+        if len(segment) < min_words:
+            return [segment]
 
-def split_by_pause(segment: Segment, config) -> list[Segment]:
-    """
-    単語間の時間が最も長い箇所で分割する
-    """
+        seg_start = segment[0][0]
+        seg_end   = segment[-1][1]
+        seg_delta = seg_end - seg_start
 
-    if len(segment) < config["words_limit"]:
-        return [segment]
+        if seg_delta < max_duration:
+            return [segment]
 
-    seg_start = segment[0][0]
-    seg_end   = segment[-1][1]
-    seg_delta = seg_end - seg_start
+        prev_start = segment[0][0]
+        max_delta = timedelta(seconds=0)
+        cutting_point = 0
 
-    if seg_delta < config["duration_limit"]:
-        return [segment]
+        for i, (start, _, _) in enumerate(segment):
+            cur_delta = start - prev_start
+            prev_start = start
+            if max_delta < cur_delta:
+                if min(len(segment) - i, i) >= min_words:
+                    max_delta = cur_delta
+                    cutting_point = i
 
-    prev_start = segment[0][0]
-    max_delta = timedelta(seconds=0)
-    cutting_point = 0
+        if cutting_point == 0 or cutting_point == len(segment):
+            return [segment]
 
-    for i, (start, end, _) in enumerate(segment):
-        cur_delta = start - prev_start
-        prev_start = start
-        if max_delta < cur_delta:
-            if min(len(segment) - i, i) >= config["words_limit"]:
-                max_delta = cur_delta
-                cutting_point = i
+        # 目的の長さになるまで再帰実行
+        left  = _split(segment[:cutting_point])
+        right = _split(segment[cutting_point:])
 
-    if cutting_point == 0 or cutting_point == len(segment):
-        return [segment]
+        return left + right
 
-    # return [segment[:cutting_point], segment[cutting_point:]]
-    # 目的の長さになるまで再帰実行
-    left  = split_by_pause(segment[:cutting_point], config)
-    right = split_by_pause(segment[cutting_point:], config)
+    results: list[Segment] = []
+    for seg in segments:
+        results += _split(seg)
+    
+    print("[cyan][INFO][/]", f"\t-> {len(results):,} segments.")
 
-    return left + right
+    return results
+    
 
+def split_at_timestamp_boundaries(segments: list[Segment]) -> list[Segment]:
+    print("[cyan][INFO][/]", "Splitting at the timestamp gaps...")
 
-def split_by_comma(segment: Segment, config) -> list[Segment]:
-    """
-    最長部分列が最短になるようにカンマ位置で分割する
-    """
-    if len(segment) < config["words_limit"]:
-        return [segment]
+    def _split(segment: Segment) -> list[Segment]:
+        new_segments = []
+        current_seg = []
+        length = len(segment)
 
-    seg_start = segment[0][0]
-    seg_end   = segment[-1][1]
-    seg_delta = seg_end - seg_start
+        for i, (start, end, word) in enumerate(segment):
+            current_seg.append((start, end, word))
+            if i + 1 >= length:
+                continue
+            next_seg_start = segment[i + 1][0]
+            if next_seg_start - end >= timedelta(seconds=1):
+                new_segments.append(current_seg)
+                current_seg = []
+        if current_seg:
+            new_segments.append(current_seg)
 
-    if seg_delta < config["duration_limit"]:
-        return [segment]
+        return new_segments
 
-    seg_middle = seg_start + (seg_delta / 2)
-    max_delta = seg_delta
-    cutting_point = 0
-    for i, (start, end, word) in enumerate(segment):
-        if word.endswith(","):
-            cur_delta = abs(end - seg_middle)
-            if max_delta >= cur_delta:
-                max_delta = cur_delta
-                cutting_point = i + 1
+    results = []
+    for seg in segments:
+        results += _split(seg)
 
-    if min(len(segment) - cutting_point, cutting_point) < config["words_limit"]:
-        return [segment]
+    print("[cyan][INFO][/]", f"\t-> {len(results):,} segments.")
 
-    # return [segment[:cutting_point], segment[cutting_point:]]
-    # 目的の長さになるまで再帰実行
-    left  = split_by_pause(segment[:cutting_point], config)
-    right = split_by_pause(segment[cutting_point:], config)
+    return results
 
-    return left + right

@@ -1,6 +1,7 @@
 import os, re, csv, json, collections
 from datetime import timedelta
 from importlib import import_module
+from importlib.metadata import version, PackageNotFoundError
 
 from rich import print
 from rich.progress import Progress
@@ -8,8 +9,14 @@ import spacy
 from spacy.tokens import DocBin
 from spacy.tokens.doc import Doc
 
-from .entity import Line, Segment
+from y2a.entity import Line, Segment
 
+
+def get_version():
+    try:
+        return version("y2a")
+    except PackageNotFoundError:
+        return "0.0.0"
 
 def load_spacy(model_name: str, **kwargs) -> spacy.Language:
     try:
@@ -26,22 +33,24 @@ def get_spacy_document(text: str, config) -> Doc:
     file_path = f"{video_id}/{video_id}.spacy"
     nlp = load_spacy("en_core_web_sm")
 
+    print("[cyan][INFO][/]", "Analyzing text...")
     if os.path.exists(file_path):
-        print("[cyan][INFO][/]", "Loading spacy documents...")
+        print("[cyan][INFO][/]", "Skipped. Spacy document found.")
         loaded_bin = DocBin().from_disk(file_path)
         doc = list(loaded_bin.get_docs(nlp.vocab))[0]
         return doc
 
-    print("[cyan][INFO][/]", "Analyzing text...")
     doc = None
     with Progress() as p:
         p.add_task("Analyzing", total=None)
         doc = nlp(text)
 
-    if config.get("makes_spacy"):
+    if "spacy" in config.get("formats"):
         docbin = DocBin()
         docbin.add(doc)
         docbin.to_disk(file_path)
+        print("[cyan][INFO][/]", f"[green]File created: {file_path}")
+
    
     return doc
 
@@ -90,7 +99,7 @@ def write_in_vtt(file_path: str, lines: list[Line]):
         for row in output:
             f.write(row + "\n")
 
-    print("[cyan][INFO][/]", f"vtt created: {file_path}")
+    print("[cyan][INFO][/]", f"[green]File created: {file_path}")
 
 
 def write_in_txt(file_path: str, lines: list[Line]):
@@ -102,17 +111,19 @@ def write_in_txt(file_path: str, lines: list[Line]):
         for s in sents:
             f.write(s + "\n")
 
+    print("[cyan][INFO][/]", f"[green]File created: {file_path}")
 
-def write_in_tsv(file_path: str, rows: list[str]):
+
+def write_in_csv(file_path: str, rows: list[str]):
     """
-    tsv output
+    csv output
     """
     with open(file_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f, delimiter="\t")
         for row in rows:
             writer.writerow(row)
 
-    print("[cyan][INFO][/]", f"tsv created: {file_path}")
+    print("[cyan][INFO][/]", f"[green]File created: {file_path}")
 
 
 def write_in_json(file_path: str, rows: list[str]):
@@ -122,7 +133,7 @@ def write_in_json(file_path: str, rows: list[str]):
     with open(file_path, mode="w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False, indent=4)
 
-    print("[cyan][INFO][/]", f"json created: {file_path}")
+    print("[cyan][INFO][/]", f"[green]File created: {file_path}")
 
 
 def print_segment(segment: Segment):
@@ -173,5 +184,29 @@ def print_token_count(doc: Doc):
     print()
 
 
+def print_summary(lines: list[Line], config):
+    durations = [e - s for s, e, _ in lines]
+    
+    max_seconds = int(config.get("max_duration").total_seconds())
+    duration_counts = [0 for _ in range(max_seconds)]
+    over_max_sec = 0
+    
+    for d in durations:
+        found = False
+        for i in range(len(duration_counts)):
+            if d <= timedelta(seconds=i+1):
+                duration_counts[i] += 1
+                found = True
+                break
+        if not found:
+            over_max_sec += 1
 
+    print()
+    for i, d in enumerate(duration_counts):
+        print("[magenta][VERBOSE][/]", f"~ {i+1} sec: {d:,} segments")
+    print("[magenta][VERBOSE][/]", f"{max_seconds} sec ~: {over_max_sec:,} segments")
 
+    total = sum(durations, timedelta())
+    print()
+    print("[magenta][VERBOSE][/]", f"{format_time(total, delim=':')} in total.")
+    

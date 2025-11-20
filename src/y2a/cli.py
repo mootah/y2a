@@ -1,127 +1,137 @@
-import os, argparse
+import os, sys
 from datetime import timedelta
-
 from rich import print
+import rich_click as click
 
-from .utils import write_in_vtt
-from .downloader import download
-from .processor import convert_subs_into_lines
-from .extractor import extract_media
-from .generator import generate_apkg
+from y2a.downloader import download
+from y2a.parser import parse
+from y2a.extractor import extract
+from y2a.generator import generate
+from y2a.utils import (
+    get_version,
+    write_in_vtt,
+    write_in_txt,
+    write_in_csv,
+    write_in_json
+)
+
+FORMATS = ("apkg", "csv", "json", "vtt", "txt", "spacy")
+BOUNDARIES = ("sentence", "grammar", "speech", "all")
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+def parse_video_string(video_string):
+    video_id = ""
+    video_path = ""
+    if video_string.endswith(".mp4"):
+        video_path = video_string
+        video_id = os.path.splitext(os.path.basename(video_path))
+    elif len(video_string) == 11:
+        video_id = video_string
+        video_path = f"{video_id}/{video_id}.mp4"
+    else:
+        print("[red][ERROR][/]", "ID must be an 11-digit string.")
+        sys.exit(1)
+        
+    return video_id, video_path
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Create a Anki deck from a YouTube video.")
-    parser.add_argument(
-        "-i", default="",
-        help="video id")
-    parser.add_argument(
-        "--mp4", default="",
-        help="mp4 file path")
-    parser.add_argument(
-        "--vtt", default="",
-        help="vtt file path (default: <video_name>.en-orig.vtt)")
-    parser.add_argument(
-        "--archive", default="",
-        help="txt file path. a list of archived sentences")
-    parser.add_argument(
-        "--no_archive_update", action="store_true",
-        help="not update the archive file (default: False)")
-    parser.add_argument(
-        "--make_txt", action="store_true",
-        help="create a txt file (default: False)")
-    parser.add_argument(
-        "--make_vtt", action="store_true",
-        help="create a vtt file (default: False)")
-    parser.add_argument(
-        "--make_tsv", action="store_true",
-        help="create a tsv file (default: False)")
-    parser.add_argument(
-        "--make_json", action="store_true",
-        help="create a json file (default: False)")
-    parser.add_argument(
-        "--make_spacy", action="store_true",
-        help="create a spacy document binary (default: False)")
-    parser.add_argument(
-        "--dry", action="store_true",
-        help="dry run (default: False)")
-    parser.add_argument(
-        "--verbose", action="store_true",
-        help="print verbosely (default: False)")
-    parser.add_argument(
-        "--debug", action="store_true",
-        help="debug mode (default: False)")
-    # parser.add_argument(
-    #     "--cut", default="comma,pause",
-    #     help="cutting sentences by (comma, pause) (default: \"comma,pause\")")
-    parser.add_argument(
-        "--keep_dups", action="store_true",
-        help="keep duplicate sentences (default: False)")
-    parser.add_argument(
-        "--max_duration", default=8, type=int,
-        help="maximum duration to cut (seconds) (default: 6)")
-    parser.add_argument(
-        "--min_words", default=5, type=int,
-        help="minimum words length to cut (default: 5)")
-    parser.add_argument(
-        "--pad_start", default=100, type=int,
-        help="padding for start timing of a line (milliseconds) (default: 100)")
-    parser.add_argument(
-        "--pad_end", default=25, type=int,
-        help="padding for end timing of a line (milliseconds) (default: 25)")
-
-    args = parser.parse_args()
+@click.command(context_settings=CONTEXT_SETTINGS,
+    help="Convert YouTube video into Anki deck")
+@click.version_option(
+    get_version(),
+    "-v", "--version",
+    prog_name="y2a"
+)
+@click.argument("video",
+    help="video ID or video filepath (.mp4)",
+    metavar="ID|PATH")
+@click.option("--subtitle", "-s",
+    help="subtitle filepath (.vtt)",
+    type=click.Path())
+@click.option("--format", "-f", default=["apkg"],
+    help="output format (multi: -f ... -f ...)",
+    multiple=True, show_default=True,
+    type=click.Choice(FORMATS, case_sensitive=False))
+@click.option("--max_duration", "-d", default=8000,
+    help="max duration (in ms) for each segment",
+    type=int, show_default=True)
+@click.option("--min_words", "-w", default=3,
+    help="min number of words for each segment",
+    type=int, show_default=True)
+@click.option("--margin", "-m", default=(100, 25),
+    help="audio margins (in ms) for each segment",
+    type=(int, int), metavar="START END", show_default=True)
+@click.option("--boundary", "-b", default=["all"],
+    help="boundary types used to split the text (multi: -b ... -b ...)",
+    multiple=True, show_default=True,
+    type=click.Choice(BOUNDARIES, case_sensitive=False))
+@click.option("--keep_dups", is_flag=True,
+    help="prevent removing duplicated lines")
+@click.option("--dry", is_flag=True,
+    help="run without video DL and file creation")
+@click.option("--verbose", "-V", is_flag=True,
+    help="run verbosely")
+@click.option("--debug", "-D", is_flag=True,
+    help="run in debug mode")
+def main(video, **args):
+    video_id, video_path = parse_video_string(video)
+    subtitle_path = video_path.replace(".mp4", ".en-orig.vtt")
+    subtitle_path = args.get("subtitle") or subtitle_path
+    
+    boundaries = args.get("boundary")
+    if "all" in boundaries:
+        boundaries = ("sentence", "grammar", "speech")
 
     config = {
-        "video_id":          args.i,
-        "video_path":        args.mp4,
-        "subs_path":         args.mp4.replace(".mp4", ".en-orig.vtt"),
-        "is_dry":            args.dry,
-        "is_verbose":        args.verbose,
-        "is_debug":          args.debug,
-        "makes_txt":         args.make_txt,
-        "makes_vtt":         args.make_vtt,
-        "makes_tsv":         args.make_tsv,
-        "makes_json":        args.make_json,
-        "makes_spacy":       args.make_spacy,
-        "archive_path":      args.archive,
-        "no_archive_update": args.no_archive_update,
-        # "cutting":           args.cut,
-        "cutting":           "pause",
-        "keeps_dups":        args.keep_dups,
-        "duration_limit":    timedelta(seconds=args.max_duration),
-        "words_limit":       args.min_words,
-        "pad_start":         timedelta(milliseconds=args.pad_start),
-        "pad_end":           timedelta(milliseconds=args.pad_end),
+        "video_id": video_id,
+        "video_path": video_path,
+        "subtitle_path": subtitle_path,
+        "formats": args.get("format"),
+        "boundaries": boundaries,
+        "should_keep_dups": args.get("keep_dups"),
+        "max_duration": timedelta(milliseconds=args.get("max_duration")),
+        "min_words": args.get("min_words"),
+        "margin_start": timedelta(milliseconds=args.get("margin")[0]),
+        "margin_end": timedelta(milliseconds=args.get("margin")[1]),
+        "is_dry": args.get("dry"),
+        "is_verbose": args.get("verbose"),
+        "is_debug": args.get("debug")
     }
 
-
-    if not config["video_id"] and not config["video_path"]:
-        print("[red][ERROR][/]", "You need to provide video_id or video_path.")
-        exit(1)
-
-    if not config["video_id"] and config["video_path"]:
-        config["video_id"], _ = os.path.splitext(os.path.basename(config["video_path"]))
-
-    os.makedirs(config["video_id"], exist_ok=True)
-
-    if config["video_id"] and not config["video_path"]:
-        print()
-        print("[green][TASK] [0/3][/]", "Downloading the video and its subtitle...")
-        config["video_path"], config["subs_path"] = download(config["video_id"], config)
-
-    if args.vtt:
-        config["subs_path"] = args.vtt
+    if config.get("is_debug"):
+        print(config)
 
     print()
-    print("[green][TASK] [1/3][/]", "Converting subs into segments...")
-    lines = convert_subs_into_lines(config["subs_path"], config)
+    print("[green][TASK] [0/3][/]", "Downloading the video and subtitle...")
+    if not os.path.exists(video_id):
+        os.makedirs(video_id, exist_ok=True)
+    download(video_id, config)
+
+    print()
+    print("[green][TASK] [1/3][/]", "Parsing the subtitle into segments...")
+    lines = parse(subtitle_path, config)
+
+    if "vtt" in config.get("formats") and not config.get("is_dry"):
+        write_in_vtt(f"{video_id}/{video_id}.out.vtt", lines)
+
+    if "txt" in config.get("formats") and not config.get("is_dry"):
+        write_in_txt(f"{video_id}/{video_id}.txt", lines)
+
     print()
     print("[green][TASK] [2/3][/]", "Extracting media files...")
-    media = extract_media(lines, config)
+    media = extract(lines, config)
+
     print()
-    print("[green][TASK] [3/3][/]", "Generating Anki package...")
-    generate_apkg(lines, media, config)
+    print("[green][TASK] [3/3][/]", "Generating an Anki package...")
+    cards = generate(lines, media, config)
+
+    if "csv" in config.get("formats") and not config.get("is_dry"):
+        rows = [c.values() for c in cards]
+        write_in_csv(f"{video_id}/{video_id}.csv", rows)
+
+    if "json" in config.get("formats") and not config.get("is_dry"):
+        write_in_json(f"{video_id}/{video_id}.json", cards)
 
 
+if __name__ == "__main__":
+    main()

@@ -1,11 +1,10 @@
-import os, subprocess
+import os, sys, subprocess
 
 from rich import print
 
 def download(video_id: str, config):
-    base_path = f"{video_id}/{video_id}"
-    video_path  = base_path + ".mp4"
-    subs_path  = base_path + ".en-orig.vtt"
+    video_path = config.get("video_path")
+    subtitle_path = config.get("subtitle_path")
     video_format_id = "18"
     # video_format_id = "92"
 
@@ -18,19 +17,19 @@ def download(video_id: str, config):
         "-o", "%(id)s/%(id)s.%(ext)s",
     ]
     
-    if not config["is_debug"]:
+    if not config.get("is_debug"):
         cmd.append("-q")
 
-    if config["is_dry"]:
+    if config.get("is_dry") or not "apkg" in config.get("formats"):
         cmd.append("--skip-download")
-        if os.path.exists(subs_path):
+        if os.path.exists(subtitle_path):
             print("[cyan][INFO][/]", "Skipped. Already exists.")
-            return video_path, subs_path
+            return
     else:
         cmd += ["-f", video_format_id]
         if os.path.exists(video_path):
             print("[cyan][INFO][/]", "Skipped. Already exists.")
-            return video_path, subs_path
+            return
 
     cmd.append(f"https://www.youtube.com/watch?v={video_id}")
 
@@ -38,11 +37,10 @@ def download(video_id: str, config):
         p = subprocess.run(cmd)
     except FileNotFoundError:
         print("[red][ERROR][/]", "Command not found: yt-dlp")
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         print(e)
-        exit(1)
+        sys.exit(1)
 
-    return video_path, subs_path
 
 

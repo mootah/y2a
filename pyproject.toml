@@ -11,12 +11,13 @@ dependencies = [
     "genanki>=0.13.1",
     "pip>=25.2",
     "rich>=14.1.0",
+    "rich-click>=1.9.4",
     "spacy>=3.8.7",
 ]
 
 [project.scripts]
 y2a = "y2a.cli:main"
-test = "y2a.test:test"
+
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.9.0"]
