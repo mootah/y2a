@@ -1,44 +1,33 @@
 <div class="pane">
-  <div class="section">
-    <div class="sentence" id="sentence">
-      <span>{{sentence}}</span>
-    </div>
-    <!-- -->
-    {{^audio_file}}
-    <div class="center">{{audio}}</div>
-    {{/audio_file}}
-    <!-- -->
-    {{#audio_file}}
-    <div class="center">
-      <audio controls autoplay preload="meta" id="audio">
-        <source src="{{text:audio_file}}" type="audio/mp3" />
-      </audio>
-      <div class="buttonGroup grid pt8">
-        <div class="button" id="btn100">
-          <span>x1.00</span>
-        </div>
-        <div class="button" id="btn075">
-          <span>x0.75</span>
-        </div>
-        <div class="button" id="btn050">
-          <span>x0.50</span>
-        </div>
-        <div class="button" id="btn025">
-          <span>x0.25</span>
-        </div>
-      </div>
-    </div>
-    {{/audio_file}}
-    <!-- -->
-  </div>
-  <!-- -->
   {{#image}}
-  <hr />
   <div class="section">
     <div class="image">{{image}}</div>
   </div>
+  <hr />
   {{/image}}
-  <!-- -->
+  <div class="section center">
+    <!-- -->
+    {{^audio_file}} {{audio}} {{/audio_file}}
+    <!-- -->
+    {{#audio_file}}
+    <audio controls autoplay preload="meta" id="audio">
+      <source src="{{text:audio_file}}" type="audio/mp3" />
+    </audio>
+    <div class="buttonGroup grid4 pt16">
+      <div class="button" id="btn100">1.00</div>
+      <div class="button" id="btn075">0.75</div>
+      <div class="button" id="btn050">0.50</div>
+      <div class="button" id="btn025">0.25</div>
+    </div>
+    {{/audio_file}}
+    <!-- -->
+  </div>
+  <hr />
+  <div class="section">
+    <div class="sentence">
+      <div>{{sentence}}</div>
+    </div>
+  </div>
   {{#translation}}
   <hr />
   <div class="section">
@@ -55,35 +44,43 @@
   <!-- -->
   <hr />
   <div class="section">
-    <div class="buttonGroup">
+    <div class="buttonGroup grid4">
       <!-- -->
       {{#url}}
-      <a class="link button" href="{{url}}">
-        <span>YouTube</span>
-      </a>
+      <a class="link button" href="{{url}}"> YT </a>
       {{/url}}
       <!-- -->
       <a class="link button" href="https://www.google.com/search?udm=50&source=searchlabs&q=<prompt>">
-        <span>Google AI</span>
+        AI
       </a>
       <a class="link button" href="https://translate.google.com/?sl=<lang>&tl=ja&text=<sentence>&op=translate">
-        <span>Google翻訳</span>
+        TL
       </a>
-      <a class="link button" href="https://www.deepl.com/translator#<lang>/ja/<sentence>">
-        <span>DeepL</span>
+      <!--
+      <a
+        class="link button"
+        href="https://www.deepl.com/translator#<lang>/ja/<sentence>"
+      >
+        DeepL
       </a>
+      -->
       <a class="link button" href="https://filmot.com/search/<sentence>/1?lang=<lang>&gridView=1">
-        <span>Filmot</span>
+        FM
       </a>
-      <a class="link button" href="https://youglish.com/pronounce/<sentence>/english/us">
-        <span>YouGlish</span>
+      <!--
+      <a
+        class="link button"
+        href="https://youglish.com/pronounce/<sentence>/english/us"
+      >
+        YouGlish
       </a>
+      -->
       <!--
       <a class="link button"
         href="https://www.google.com/search?q=<sentence>">
-        <span>Google</span>
+        Google
       </a>
--->
+      -->
     </div>
   </div>
 </div>

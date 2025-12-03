@@ -51,7 +51,7 @@ def parse_subtext_into_words(subtext: list[str]) -> list[TimedWord]:
                 word_start = times[j]
                 word_end   = times[j + 1]
 
-                word = word.replace("&gt;&gt; ", "")
+                # word = word.replace("&gt;&gt; ", "")
                 word.strip()
 
                 if not word:

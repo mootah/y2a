@@ -61,7 +61,7 @@ def write_in_apkg(rows: list[list], media: list[str], video_id):
     
     model = genanki.Model(
         1759125590781,
-        "SentenceMining",
+        "y2a",
         fields=[
             {"name": "id"},
             {"name": "sentence"},
@@ -74,7 +74,7 @@ def write_in_apkg(rows: list[list], media: list[str], video_id):
         ],
         templates=[
             {
-                "name": "Repeating",
+                "name": "Audio->Sentence",
                 "qfmt": front,
                 "afmt": back,
             },
