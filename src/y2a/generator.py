@@ -3,7 +3,7 @@ import os, random
 from rich import print
 import genanki
 
-from y2a.entity import Line
+from y2a.entity import Segment
 from y2a.utils import format_time
 
 
@@ -28,9 +28,12 @@ def load_templates():
     return front, back, style
 
 
-def create_cards(lines: list[Line], video_id) -> list[dict]:
+def create_cards(segments: list[Segment], video_id) -> list[dict]:
     cards = []
-    for start, end, sentence in lines:
+    for segment in segments:
+        start = segment.start
+        end = segment.end
+        sentence = segment.sentence
         start_str = format_time(start)
         end_str = format_time(end)
 
@@ -40,7 +43,7 @@ def create_cards(lines: list[Line], video_id) -> list[dict]:
         audio_file  = f"{note_id}.mp3"
         audio       = f"[sound:{audio_file}]"
         image_tag   = f"<img src=\"{note_id}.jpg\">"
-        url         = f"https://www.youtube.com/watch?v={video_id}&start={start.seconds}&end={end.seconds}"
+        url         = f"https://www.youtube.com/watch?v={video_id}&start={int(start.total_seconds())}&end={int(end.total_seconds())}"
 
         cards.append({
             "id":          note_id,
@@ -105,9 +108,9 @@ def write_in_apkg(rows: list[list], media: list[str], video_id):
     print("[cyan][INFO][/]", f"[green]Anki package created: {apkg_path}")
 
 
-def generate(lines: list[Line], media: list[str], config) -> list[dict]:
+def generate(segments: list[Segment], media: list[str], config) -> list[dict]:
     video_id = config.get("video_id")
-    cards = create_cards(lines, video_id)
+    cards = create_cards(segments, video_id)
 
     if config.get("is_dry"):
         print("[yellow][DRY][/]", "Skipped.")

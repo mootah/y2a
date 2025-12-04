@@ -1,46 +1,43 @@
-import os, sys, subprocess
-
+import os, sys
 from rich import print
+from yt_dlp import YoutubeDL
+
 
 def download(video_id: str, config):
     video_path = config.get("video_path")
     subtitle_path = config.get("subtitle_path")
     video_format_id = "18"
-    # video_format_id = "92"
 
-    cmd = [
-        "yt-dlp",
-        "--progress",
-        "--write-auto-subs",
-        "--sub-lang", "en.orig",
-        "--sub-format", "vtt",
-        "-o", "%(id)s/%(id)s.%(ext)s",
-    ]
-    
+    ydl_opts = {
+        "progress": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True, # --write-auto-subs
+        "subtitleslangs": ["en.orig"],
+        "subtitlesformat": "srv2",
+        "outtmpl": "%(id)s/%(id)s.%(ext)s", # -o
+    }
+
+    # --quiet
     if not config.get("is_debug"):
-        cmd.append("-q")
+        ydl_opts["quiet"] = True
 
-    if config.get("is_dry") or not "apkg" in config.get("formats"):
-        cmd.append("--skip-download")
+    # --skip-download
+    if config.get("is_dry") or "apkg" not in config.get("formats"):
+        ydl_opts["skip_download"] = True
         if os.path.exists(subtitle_path):
-            print("[cyan][INFO][/]", "Skipped. Already exists.")
+            print("[cyan][INFO][/]", "Skipped. Subtitle already exists.")
             return
     else:
-        cmd += ["-f", video_format_id]
+        ydl_opts["format"] = video_format_id
         if os.path.exists(video_path):
-            print("[cyan][INFO][/]", "Skipped. Already exists.")
+            print("[cyan][INFO][/]", "Skipped. Video already exists.")
             return
 
-    cmd.append(f"https://www.youtube.com/watch?v={video_id}")
+    url = f"https://www.youtube.com/watch?v={video_id}"
 
     try:
-        p = subprocess.run(cmd)
-    except FileNotFoundError:
-        print("[red][ERROR][/]", "Command not found: yt-dlp")
-        sys.exit(1)
+        with YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
     except Exception as e:
-        print(e)
+        print("[red][ERROR][/]", e)
         sys.exit(1)
-
-
-

@@ -1,13 +1,11 @@
-import re
+import re, html
 from datetime import timedelta
-
 from rich import print
-from spacy.tokens.doc import Doc
+from bs4 import BeautifulSoup
 
-from y2a.entity import TimedWord, Segment, Line
+from y2a.entity import TimedWord, Segment
 from y2a.utils import (
     get_spacy_document,
-    parse_time,
     print_token_count,
     print_summary
 )
@@ -17,111 +15,85 @@ from y2a.splitter import (
     split_at_timestamp_boundaries
 )
 
+def parse_into_timedwords(sub_path: str) -> list[TimedWord]:
+    text = ""
+    with open(sub_path, "r") as f:
+        text = f.read()
+    soup = BeautifulSoup(text, "lxml-xml")
+    
+    words: list[TimedWord] = []
+    max_delta = timedelta(seconds=2)
 
-def parse_subtext_into_words(subtext: list[str]) -> list[TimedWord]:
-    timed_words = []
-    i = 0
-    while i < len(subtext):
-        row = subtext[i].strip()
-        if re.match(r"^\d\d:\d\d:\d\d\.\d+ -->", row):
+    for element in soup("text"):
+        start = timedelta(milliseconds=int(element.get("t")))
+        word_text = html.unescape(element.text).strip()
+        end = start + max_delta
+        
+        if word_text.startswith("["):
+            word_text = ""
+        
+        word_text = word_text.replace(">>", "―")
+        
+        word = TimedWord(start, end, word_text)
+        words.append(word)
 
-            # time
-            time_row = row
-            start, end = time_row.split(" --> ")
-            end = end.replace(" align:start position:0%", "")
+    for i, word in enumerate(words):
+        if i == 0:
+            continue
+        if words[i-1].end > word.start:
+            # TimedWordはimmutableなため、新しいインスタンスを作成
+            words[i-1] = TimedWord(words[i-1].start, word.start, words[i-1].word)
+    
+    tokens: list[TimedWord] = []
+    for word in words:
+        if " " in word.word:
+            for t in word.word.split(" "):
+                token = TimedWord(word.start, word.end, t)
+                tokens.append(token)
+        else:
+            tokens.append(word)
+    words = tokens
+    
+    words = [w for w in words if w.word]
 
-            # word (the next next row)
-            i += 2
-            if i < len(subtext):
-                word_row = subtext[i].strip()
-            else:
-                word_row = ""
+    return words
 
-            head_word = word_row.split("<")[0].strip()
-
-            times = [parse_time(start)]
-            words = [head_word]
-            pattern = re.compile(r"<(\d+:\d+:\d+\.\d+)>.*?<c>(.*?)</c>")
-            for t, w in pattern.findall(word_row):
-                times.append(parse_time(t))
-                words.append(w.strip())
-            times.append(parse_time(end))
-
-            for j, word in enumerate(words):
-                word_start = times[j]
-                word_end   = times[j + 1]
-
-                # word = word.replace("&gt;&gt; ", "")
-                word.strip()
-
-                if not word:
-                    continue
-                if word.startswith("["):
-                    continue
-                
-                max_word_delta = timedelta(seconds=2)
-
-                if len(word.split(" ")) > 1:
-                    for w in word.split(" "):
-                        timed_words.append((word_start, word_end, w))
-                    continue
-                elif word_end - word_start > max_word_delta:
-                    word_end = word_start + max_word_delta
-                timed_words.append((word_start, word_end, word))
-        i += 1
-
-    print("[cyan][INFO][/]",
-          f"\t-> {len(timed_words):,} words have indivisual timestamps.")
-
-    return timed_words
-
-
-def map_timedwords_to_sentences(
-    timedwords: list[TimedWord], sentences: list[str]) -> list[Segment]:
-
-    words_list = [w for _, _, w in timedwords]
-    words_len = len(words_list)
+def merge_timedwords_into_segments(timedwords: list[TimedWord], sentences: list[str]) -> list[Segment]:
+    words = [w.word for w in timedwords]
     segments: list[Segment] = []
 
     pos = 0
     for sent in sentences:
-        candidate = words_list[pos]
-        if sent in candidate:
-            seg = timedwords[pos:pos+1]
-            segments.append(seg)
-            pos += 1
-            continue
-        for i in range(1, words_len - pos):
-            candidate += " " + words_list[pos+i]
-            if sent in candidate:
-                seg = timedwords[pos:pos+i+1]
-                segments.append(seg)
-                pos += i + 1
-                break
-
+        sent_len = len(sent.split(" "))
+        result = " ".join(words[pos:pos+sent_len])
+        if sent != result:
+            print("Text did not match")
+            print(sent, words[pos:pos+sent_len])
+            break
+        seg = Segment(timedwords[pos:pos+sent_len])
+        segments.append(seg)
+        pos += sent_len
+    
+    # for sent in sentences:
+    #     candidate = words[pos]
+    #     if sent in candidate:
+    #         seg = Segment(timedwords[pos:pos+1])
+    #         segments.append(seg)
+    #         pos += 1
+    #         continue
+    #     for i in range(1, words_len - pos):
+    #         candidate += " " + words[pos+i]
+    #         if sent in candidate:
+    #             seg = Segment(timedwords[pos:pos+i+1])
+    #             segments.append(seg)
+    #             pos += i + 1
+    #             break
     return segments
 
 
-def merge_segments_into_lines(segments: list[Segment]) -> list[Line]:
-    lines: list[Line] = []
-    for seg in segments:
-        starts, ends, words = zip(*seg)
-        seg_start = starts[0]
-        seg_end   = ends[-1]
-        sentence = " ".join(words)
-        lines.append((seg_start, seg_end, sentence))
-    return lines
-
-
-def parse(subtitle_path: str, config) -> list[Line]:
-    subtext: list[str] = []
-
-    with open(subtitle_path, "r", encoding="utf-8") as f:
-        subtext = f.readlines()
-
-    timedwords = parse_subtext_into_words(subtext)
-
-    text = " ".join(w for _, _, w in timedwords)
+def parse(subtitle_path: str, config) -> list[Segment]:
+    timedwords = parse_into_timedwords(subtitle_path)
+    text = " ".join(w.word for w in timedwords)
     doc = get_spacy_document(text, config)
 
     if config.get("is_verbose"):
@@ -131,7 +103,7 @@ def parse(subtitle_path: str, config) -> list[Line]:
     sentences: list[str] = split_at_doc_boundaries(doc, config)
 
     # (timedwords, sentences) -> segments
-    segments: list[Segment] = map_timedwords_to_sentences(timedwords, sentences)
+    segments: list[Segment] = merge_timedwords_into_segments(timedwords, sentences)
 
     # Split at the timestamp gap
     segments = split_at_timestamp_boundaries(segments)
@@ -140,36 +112,37 @@ def parse(subtitle_path: str, config) -> list[Line]:
     if "speech" in config.get("boundaries"):
         segments = split_at_speech_boundaries(segments, config)
 
-    # Merge segments into lines
-    lines: list[Line] = merge_segments_into_lines(segments)
-
     # Remove dups
     if not config.get("should_keep_dups"):
         print("[cyan][INFO][/]", "Removing duplicates...")
-        unique_lines = []
+        unique_segs = []
         unique_sents = set()
-        for start, end, sentence in lines:
-            if sentence in unique_sents:
+        for seg in segments:
+            if seg.sentence in unique_sents:
                 continue
-            unique_lines.append((start, end, sentence))
-            unique_sents.add(sentence)
-        lines = unique_lines
-        print("[cyan][INFO][/]", f"\t-> {len(lines):,} segments.")
+            unique_segs.append(seg)
+            unique_sents.add(seg.sentence)
+        segments = unique_segs
+        print("[cyan][INFO][/]", f"\t-> {len(segments):,} segments.")
 
-    # Add margins
-    for i, (start, end, sentence) in enumerate(lines):
+    # Add margins (Segmentはimmutableなため、TimedWordsを修正)
+    for i, seg in enumerate(segments):
         margin_start = config.get("margin_start")
         margin_end   = config.get("margin_end")
-        if margin_start < start:
-            start -= margin_start
-            lines[i] = (start, end, sentence)
-        if i < len(lines) - 1:
-            end += margin_end
-            lines[i] = (start, end, sentence)
+        
+        # 先頭のTimedWordを修正
+        if margin_start < seg[0].start:
+            first_word = seg[0]
+            seg[0] = TimedWord(first_word.start - margin_start, first_word.end, first_word.word)
+        
+        # 末尾のTimedWordを修正
+        if i < len(segments) - 1:
+            last_word = seg[-1]
+            seg[-1] = TimedWord(last_word.start, last_word.end + margin_end, last_word.word)
 
     if config.get("is_verbose"):
-        print_summary(lines, config)
+        print_summary(segments, config)
 
-    return lines
+    return segments
 
 

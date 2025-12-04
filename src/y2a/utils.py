@@ -9,7 +9,7 @@ import spacy
 from spacy.tokens import DocBin
 from spacy.tokens.doc import Doc
 
-from y2a.entity import Line, Segment
+from y2a.entity import Segment
 
 
 def get_version():
@@ -79,7 +79,7 @@ def format_time(td: timedelta, delim: str = ".") -> str:
     return f"{hours:02}{delim}{minutes:02}{delim}{seconds:02}.{millis:03}"
 
 
-def write_in_vtt(file_path: str, lines: list[Line]):
+def write_in_vtt(file_path: str, segments: list[Segment]):
     """
     vtt output
     """
@@ -88,7 +88,10 @@ def write_in_vtt(file_path: str, lines: list[Line]):
         "Kind: captions",
         "Language: en\n",
     ]
-    for start, end, sentence in lines:
+    for segment in segments:
+        start = segment.start
+        end = segment.end
+        sentence = segment.sentence
         start_str = format_time(start, delim=":")
         end_str = format_time(end, delim=":")
         output.append(f"{start_str} --> {end_str}")
@@ -102,11 +105,11 @@ def write_in_vtt(file_path: str, lines: list[Line]):
     print("[cyan][INFO][/]", f"[green]File created: {file_path}")
 
 
-def write_in_txt(file_path: str, lines: list[Line]):
+def write_in_txt(file_path: str, segments: list[Segment]):
     """
     txt output
     """
-    sents = [s for _, _, s in lines]
+    sents = [seg.sentence for seg in segments]
     with open(file_path, "w", encoding="utf-8") as f:
         for s in sents:
             f.write(s + "\n")
@@ -139,19 +142,19 @@ def write_in_json(file_path: str, rows: list[str]):
 def print_segment(segment: Segment):
     print(
         "[magenta][VERBOSE][/]",
-        (segment[-1][1] - segment[0][0]).total_seconds(), "seconds,",
+        segment.delta.total_seconds(), "seconds,",
         len(segment), "words"
     )
-    print("[magenta][VERBOSE][/]", " ".join([w for _, _, w in segment]))
+    print("[magenta][VERBOSE][/]", segment.sentence)
 
 
 def print_longest_segment(segments: list[Segment]):
-    time_wise = []
-    word_wise = []
+    time_wise = None
+    word_wise = None
     max_duration = timedelta(seconds=0)
     max_length = 0
     for seg in segments:
-        duration = seg[-1][1] - seg[0][0]
+        duration = seg.delta
         if duration > max_duration:
             max_duration = duration
             time_wise = seg
@@ -162,11 +165,13 @@ def print_longest_segment(segments: list[Segment]):
 
     print()
     print("[magenta][VERBOSE][/]", "Longest segment (duration)")
-    print_segment(time_wise)
+    if time_wise:
+        print_segment(time_wise)
 
     print()
     print("[magenta][VERBOSE][/]", "Longest segment (words)")
-    print_segment(word_wise)
+    if word_wise:
+        print_segment(word_wise)
 
     print()
 
@@ -184,8 +189,8 @@ def print_token_count(doc: Doc):
     print()
 
 
-def print_summary(lines: list[Line], config):
-    durations = [e - s for s, e, _ in lines]
+def print_summary(segments: list[Segment], config):
+    durations = [seg.delta for seg in segments]
     
     max_seconds = int(config.get("max_duration").total_seconds())
     duration_counts = [0 for _ in range(max_seconds)]

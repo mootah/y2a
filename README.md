@@ -21,8 +21,6 @@ A program to segment YouTube videos at reasonable points and convert them into A
 ## 依存関係（Dependencies）
 
 - [uv](https://github.com/astral-sh/uv)
-- [ffmpeg](https://www.ffmpeg.org/)
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 
 ## インストール（Installation）
 

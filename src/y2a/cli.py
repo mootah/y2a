@@ -46,7 +46,7 @@ def parse_video_string(video_string):
     help="video ID or video filepath (.mp4)",
     metavar="ID|PATH")
 @click.option("--subtitle", "-s",
-    help="subtitle filepath (.vtt)",
+    help="subtitle filepath (.srv2)",
     type=click.Path())
 @click.option("--format", "-f", default=["apkg"],
     help="output format (multi: -f ... -f ...)",
@@ -75,7 +75,7 @@ def parse_video_string(video_string):
     help="run in debug mode")
 def main(video, **args):
     video_id, video_path = parse_video_string(video)
-    subtitle_path = video_path.replace(".mp4", ".en-orig.vtt")
+    subtitle_path = video_path.replace(".mp4", ".en-orig.srv2")
     subtitle_path = args.get("subtitle") or subtitle_path
     
     boundaries = args.get("boundary")
@@ -109,21 +109,21 @@ def main(video, **args):
 
     print()
     print("[green][TASK] [1/3][/]", "Parsing the subtitle into segments...")
-    lines = parse(subtitle_path, config)
+    segments = parse(subtitle_path, config)
 
     if "vtt" in config.get("formats") and not config.get("is_dry"):
-        write_in_vtt(f"{video_id}/{video_id}.out.vtt", lines)
+        write_in_vtt(f"{video_id}/{video_id}.out.vtt", segments)
 
     if "txt" in config.get("formats") and not config.get("is_dry"):
-        write_in_txt(f"{video_id}/{video_id}.txt", lines)
+        write_in_txt(f"{video_id}/{video_id}.txt", segments)
 
     print()
     print("[green][TASK] [2/3][/]", "Extracting media files...")
-    media = extract(lines, config)
+    media = extract(segments, config)
 
     print()
     print("[green][TASK] [3/3][/]", "Generating an Anki package...")
-    cards = generate(lines, media, config)
+    cards = generate(segments, media, config)
 
     if "csv" in config.get("formats") and not config.get("is_dry"):
         rows = [c.values() for c in cards]

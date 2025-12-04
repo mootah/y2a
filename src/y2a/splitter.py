@@ -201,20 +201,20 @@ def split_at_speech_boundaries(segments: list[Segment], config) -> list[Segment]
         if len(segment) < min_words:
             return [segment]
 
-        seg_start = segment[0][0]
-        seg_end   = segment[-1][1]
+        seg_start = segment.start
+        seg_end   = segment.end
         seg_delta = seg_end - seg_start
 
         if seg_delta < max_duration:
             return [segment]
 
-        prev_start = segment[0][0]
+        prev_start = segment[0].start
         max_delta = timedelta(seconds=0)
         cutting_point = 0
 
-        for i, (start, _, _) in enumerate(segment):
-            cur_delta = start - prev_start
-            prev_start = start
+        for i, word in enumerate(segment):
+            cur_delta = word.start - prev_start
+            prev_start = word.start
             if max_delta < cur_delta:
                 if min(len(segment) - i, i) >= min_words:
                     max_delta = cur_delta
@@ -224,8 +224,8 @@ def split_at_speech_boundaries(segments: list[Segment], config) -> list[Segment]
             return [segment]
 
         # 目的の長さになるまで再帰実行
-        left  = _split(segment[:cutting_point])
-        right = _split(segment[cutting_point:])
+        left  = _split(Segment(segment[:cutting_point]))
+        right = _split(Segment(segment[cutting_point:]))
 
         return left + right
 
@@ -246,16 +246,16 @@ def split_at_timestamp_boundaries(segments: list[Segment]) -> list[Segment]:
         current_seg = []
         length = len(segment)
 
-        for i, (start, end, word) in enumerate(segment):
-            current_seg.append((start, end, word))
+        for i, word in enumerate(segment):
+            current_seg.append(word)
             if i + 1 >= length:
                 continue
-            next_seg_start = segment[i + 1][0]
-            if next_seg_start - end >= timedelta(seconds=1):
-                new_segments.append(current_seg)
+            next_word = segment[i + 1]
+            if next_word.start - word.end >= timedelta(seconds=1):
+                new_segments.append(Segment(current_seg))
                 current_seg = []
         if current_seg:
-            new_segments.append(current_seg)
+            new_segments.append(Segment(current_seg))
 
         return new_segments
 
