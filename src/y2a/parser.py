@@ -67,8 +67,9 @@ def merge_timedwords_into_segments(timedwords: list[TimedWord], sentences: list[
         sent_len = len(sent.split(" "))
         result = " ".join(words[pos:pos+sent_len])
         if sent != result:
-            print("Text did not match")
-            print(sent, words[pos:pos+sent_len])
+            print("[red][ERROR][/]", "Text did not match")
+            print(sent)
+            print(words[pos:pos+sent_len])
             break
         seg = Segment(timedwords[pos:pos+sent_len])
         segments.append(seg)
