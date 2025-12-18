@@ -1,10 +1,4 @@
 <div class="pane">
-  {{#image}}
-  <div class="section">
-    <div class="image">{{image}}</div>
-  </div>
-  <hr />
-  {{/image}}
   <div class="section center">
     <!-- -->
     {{^audio_file}} {{audio}} {{/audio_file}}
@@ -22,6 +16,14 @@
     {{/audio_file}}
     <!-- -->
   </div>
+  <!-- -->
+  {{#image}}
+  <hr />
+  <div class="section">
+    <div class="image">{{image}}</div>
+  </div>
+  {{/image}}
+  <!-- -->
 </div>
 <script>
   var audio = document.getElementById("audio");
@@ -53,35 +55,29 @@
   document.addEventListener("keypress", function (event) {
     var key = event.key || event.keyCode;
     switch (key) {
-      case "(":
-        play(0.25)();
-        break;
-      case "[":
-        play(0.5)();
-        break;
-      case "]":
-        play(0.75)();
-        break;
-      case "^":
-        play(0.5)();
-        break;
-      case "$":
-        play(0.75)();
-        break;
-      case ")":
+      case "h":
         play(1.0)();
         break;
-      case "ArrowUp":
+      case "j":
+        play(0.75)();
+        break;
+      case "k":
+        play(0.5)();
+        break;
+      case "l":
         play(0.25)();
         break;
       case "ArrowLeft":
-        play(0.5)();
+        play(1.0)();
         break;
       case "ArrowDown":
         play(0.75)();
         break;
+      case "ArrowUp":
+        play(0.5)();
+        break;
       case "ArrowRight":
-        play(1.0)();
+        play(0.25)();
         break;
     }
   });

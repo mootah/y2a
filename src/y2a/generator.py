@@ -39,6 +39,7 @@ def create_cards(segments: list[Segment], video_id) -> list[dict]:
 
         note_id     = f"{video_id}_{start_str}-{end_str}"
         translation = ""
+        target      = ""
         notes       = ""
         audio_file  = f"{note_id}.mp3"
         audio       = f"[sound:{audio_file}]"
@@ -49,6 +50,7 @@ def create_cards(segments: list[Segment], video_id) -> list[dict]:
             "id":          note_id,
             "sentence":    sentence,
             "translation": translation,
+            "target":      target,
             "notes":       notes,
             "audio":       audio,
             "audio_file":  audio_file,
@@ -69,6 +71,7 @@ def write_in_apkg(rows: list[list], media: list[str], video_id):
             {"name": "id"},
             {"name": "sentence"},
             {"name": "translation"},
+            {"name": "target"},
             {"name": "notes"},
             {"name": "audio"},
             {"name": "audio_file"},

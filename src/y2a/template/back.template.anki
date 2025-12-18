@@ -1,10 +1,15 @@
 <div class="pane">
-  {{#image}}
   <div class="section">
-    <div class="image">{{image}}</div>
+    <div class="sentence">
+      <div>{{sentence}}</div>
+    </div>
   </div>
+  {{#translation}}
+  <div class="section">
+    <div class="sectionBody translation">{{translation}}</div>
+  </div>
+  {{/translation}}
   <hr />
-  {{/image}}
   <div class="section center">
     <!-- -->
     {{^audio_file}} {{audio}} {{/audio_file}}
@@ -22,18 +27,19 @@
     {{/audio_file}}
     <!-- -->
   </div>
+  {{#image}}
   <hr />
   <div class="section">
-    <div class="sentence">
-      <div>{{sentence}}</div>
-    </div>
+    <div class="image">{{image}}</div>
   </div>
-  {{#translation}}
+  {{/image}}
+  <!-- -->
+  {{#target}}
   <hr />
   <div class="section">
-    <div class="sectionBody">{{translation}}</div>
+    <div class="center">{{target}}</div>
   </div>
-  {{/translation}}
+  {{/target}}
   <!-- -->
   {{#notes}}
   <hr />
@@ -117,35 +123,29 @@
   document.addEventListener("keypress", function (event) {
     var key = event.key || event.keyCode;
     switch (key) {
-      case "(":
-        play(0.25)();
-        break;
-      case "[":
-        play(0.5)();
-        break;
-      case "]":
-        play(0.75)();
-        break;
-      case "^":
-        play(0.5)();
-        break;
-      case "$":
-        play(0.75)();
-        break;
-      case ")":
+      case "h":
         play(1.0)();
         break;
-      case "ArrowUp":
+      case "j":
+        play(0.75)();
+        break;
+      case "k":
+        play(0.5)();
+        break;
+      case "l":
         play(0.25)();
         break;
       case "ArrowLeft":
-        play(0.5)();
+        play(1.0)();
         break;
       case "ArrowDown":
         play(0.75)();
         break;
+      case "ArrowUp":
+        play(0.5)();
+        break;
       case "ArrowRight":
-        play(1.0)();
+        play(0.25)();
         break;
     }
   });

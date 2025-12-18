@@ -8,6 +8,9 @@
   --color-text-primary: #18191f;
   --color-nightMode-text-primary: #fbfafe;
 
+  --color-text-secondary: #18191f77;
+  --color-nightMode-text-secondary: #fbfafe77;
+
   --color-card-background: ##f5f5f5;
   --color-nightMode-card-background: #282828;
 
@@ -227,6 +230,14 @@ b {
 .sectionBody {
   font-size: var(--font-size-secondary);
   padding: 0 12px;
+}
+
+.translation {
+  color: var(--color-text-secondary);
+}
+
+.nightMode .translation {
+  color: var(--color-nightMode-text-secondary);
 }
 
 .image {
