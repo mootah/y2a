@@ -4,7 +4,10 @@ from rich import print
 import genanki
 
 from y2a.entity import Segment
-from y2a.utils import format_time
+from y2a.utils import (
+    get_note_id,
+    get_media_filename
+)
 
 
 def read(file_path: str) -> str:
@@ -28,40 +31,47 @@ def load_templates():
     return front, back, style
 
 
-def create_cards(segments: list[Segment], video_id) -> list[dict]:
-    cards = []
+def create_notes(segments: list[Segment], config) -> list[dict]:
+    video_id = config.get("video_id")
+    audio_ext = config.get("audio_ext")
+    image_ext = config.get("image_ext")
+    notes: list[dict] = []
+
     for segment in segments:
         start = segment.start
         end = segment.end
         sentence = segment.sentence
-        start_str = format_time(start)
-        end_str = format_time(end)
+        start_sec = int(start.total_seconds())
+        end_sec = int(end.total_seconds())
 
-        note_id     = f"{video_id}_{start_str}-{end_str}"
+        note_id     = get_note_id(video_id, start, end)
         translation = ""
         target      = ""
-        notes       = ""
-        audio_file  = f"{note_id}.mp3"
-        audio       = f"[sound:{audio_file}]"
-        image_tag   = f"<img src=\"{note_id}.jpg\">"
-        url         = f"https://www.youtube.com/watch?v={video_id}&start={int(start.total_seconds())}&end={int(end.total_seconds())}"
+        memos       = ""
+        audio_file  = get_media_filename(video_id, start, end, audio_ext)
+        image_file  = get_media_filename(video_id, start, end, image_ext)
+        audio_tag   = f"[sound:{audio_file}]"
+        image_tag   = f"<img src=\"{image_file}\">"
+        url         = f"https://www.youtube.com/watch?v={video_id}&start={start_sec}&end={end_sec}"
 
-        cards.append({
+        notes.append({
             "id":          note_id,
             "sentence":    sentence,
             "translation": translation,
             "target":      target,
-            "notes":       notes,
-            "audio":       audio,
+            "memos":       memos,
             "audio_file":  audio_file,
+            "image_file":  image_file,
+            "audio":       audio_tag,
             "image":       image_tag,
-            "url":         url
+            "url":         url,
         })
         
-    return cards
+    return notes
 
 
-def write_in_apkg(rows: list[list], media: list[str], video_id):
+def write_in_apkg(notes: list[dict], media: list[str], config):
+    video_id = config.get("video_id")
     front, back, style = load_templates()
     
     model = genanki.Model(
@@ -72,7 +82,7 @@ def write_in_apkg(rows: list[list], media: list[str], video_id):
             {"name": "sentence"},
             {"name": "translation"},
             {"name": "target"},
-            {"name": "notes"},
+            {"name": "memos"},
             {"name": "audio"},
             {"name": "audio_file"},
             {"name": "image"},
@@ -95,12 +105,14 @@ def write_in_apkg(rows: list[list], media: list[str], video_id):
         f"{video_id}"
     )
 
-    for row in rows:
-        note = genanki.Note(
+    keys = [f["name"] for f in model.fields]
+    for n in notes:
+        row = [n.get(key) for key in keys]
+        anki_note = genanki.Note(
             model=model,
             fields=row,
         )
-        deck.add_note(note)
+        deck.add_note(anki_note)
 
     package = genanki.Package(deck)
     package.media_files = media
@@ -112,17 +124,15 @@ def write_in_apkg(rows: list[list], media: list[str], video_id):
 
 
 def generate(segments: list[Segment], media: list[str], config) -> list[dict]:
-    video_id = config.get("video_id")
-    cards = create_cards(segments, video_id)
+    notes = create_notes(segments, config)
 
     if config.get("is_dry"):
         print("[yellow][DRY][/]", "Skipped.")
-        return cards
+        return notes
     if not "apkg" in config.get("formats"):
         print("[cyan][INFO][/]", "Skipped.")
-        return cards
+        return notes
 
-    rows = [list(c.values()) for c in cards]
-    write_in_apkg(rows, media, video_id)
+    write_in_apkg(notes, media, config)
     
-    return cards
+    return notes

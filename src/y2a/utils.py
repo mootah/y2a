@@ -42,7 +42,7 @@ def get_spacy_document(text: str, config) -> Doc:
 
     doc = None
     with Progress() as p:
-        p.add_task("Analyzing", total=None)
+        p.add_task("", total=None)
         doc = nlp(text)
 
     if "spacy" in config.get("formats"):
@@ -77,6 +77,17 @@ def format_time(td: timedelta, delim: str = ".") -> str:
     minutes, rest = divmod(rest, 60 * 1000)
     seconds, millis = divmod(rest, 1000)
     return f"{hours:02}{delim}{minutes:02}{delim}{seconds:02}.{millis:03}"
+
+
+def get_note_id(video_id, start, end):
+    start_str = format_time(start)
+    end_str = format_time(end)
+    return f"{video_id}_{start_str}-{end_str}"
+
+
+def get_media_filename(video_id, start, end, ext):
+    note_id = get_note_id(video_id, start, end)
+    return f"y2a-{note_id}.{ext}"
 
 
 def write_in_vtt(file_path: str, segments: list[Segment]):

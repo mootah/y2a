@@ -4,7 +4,7 @@ from rich import print
 from rich.progress import track, Progress
 import imageio_ffmpeg
 from y2a.entity import Segment
-from y2a.utils import format_time
+from y2a.utils import get_media_filename
 
 _FFMPEG_EXE = None
 
@@ -44,16 +44,10 @@ def extract_audio(video_path, is_debug):
 
     try:
         with Progress() as p:
-            p.add_task("Extracting", total=None)
+            p.add_task("", total=None)
             # Select ffmpeg executable (system ffmpeg preferred)
             ffmpeg_path = get_ffmpeg_exe()
-            # cmd = [
-            #     ffmpeg_path, "-y",
-            #     "-i", video_path,
-            #     "-vn",
-            #     "-c:a", "pcm_s16le",
-            #     audio_path
-            # ]
+
             cmd = [
                 ffmpeg_path, "-y",
                 "-i", video_path,
@@ -73,50 +67,78 @@ def extract_audio(video_path, is_debug):
     return audio_path
 
 
-def extract_segment(ss, t, video_path, audio_path, seg_image_path, seg_audio_path, is_debug):
+def extract_seg_image(video_path, seg_image_path, ss, is_debug):
+    ffmpeg_path = get_ffmpeg_exe()
     width = -2
     height = 320
-    
-    ffmpeg_path = get_ffmpeg_exe()
 
     # Extract image frame
-    if not os.path.exists(seg_image_path):
-        cmd_image = [
-            ffmpeg_path, "-y",
-            "-ss", ss,
-            "-i", video_path,
-            "-frames:v", "1",
-            "-q:v", "2",
-            "-filter_complex", f"scale='min({width},iw)*sar':'min({height},ih)':out_color_matrix=bt601:out_range=pc",
-            seg_image_path,
-        ]
-        
-        if not is_debug:
-            cmd_image += ["-loglevel", "quiet"]
-        
-        subprocess.run(cmd_image, check=True)
+
+    # JPEG
+    # cmd = [
+    #     ffmpeg_path, "-y",
+    #     "-ss", ss,
+    #     "-i", video_path,
+    #     "-frames:v", "1",
+    #     "-q:v", "2",
+    #     "-filter_complex", f"scale='min({width},iw)*sar':'min({height},ih)':out_color_matrix=bt601:out_range=pc",
+    #     seg_image_path,
+    # ]
+
+    cmd = [
+        ffmpeg_path, "-y",
+        "-ss", ss,
+        "-i", video_path,
+        "-frames:v", "1",
+        "-c:v", "libwebp",
+        "-q:v", "80",
+        "-filter_complex", f"scale='min({width},iw)*sar':'min({height},ih)':out_color_matrix=bt601:out_range=pc",
+        seg_image_path,
+    ]
+    
+    if not is_debug:
+        cmd += ["-loglevel", "quiet"]
+    
+    subprocess.run(cmd, check=True)
+
+
+def extract_seg_audio(audio_path, seg_audio_path, ss, t, is_debug):
+    ffmpeg_path = get_ffmpeg_exe()
 
     # Extract audio segment
-    if not os.path.exists(seg_audio_path):
-        cmd_audio = [
-            ffmpeg_path, "-y",
-            "-ss", ss, "-t", t,
-            "-i", audio_path,
-            "-ac", "1",
-            "-c:a", "libmp3lame", "-b:a", "64k",
-            "-map_metadata", "-1",
-            seg_audio_path,
-        ]
-        if not is_debug:
-            cmd_audio += ["-loglevel", "quiet"]
-        
-        subprocess.run(cmd_audio, check=True)
+
+    # MP3
+    # cmd = [
+    #     ffmpeg_path, "-y",
+    #     "-ss", ss, "-t", t,
+    #     "-i", audio_path,
+    #     "-ac", "1",
+    #     "-c:a", "libmp3lame", "-b:a", "64k",
+    #     "-map_metadata", "-1",
+    #     seg_audio_path,
+    # ]
+
+    cmd = [
+        ffmpeg_path, "-y",
+        "-ss", ss, "-t", t,
+        "-i", audio_path,
+        "-ac", "1",
+        "-c:a", "libopus", "-b:a", "64k",
+        seg_audio_path,
+    ]
+
+    if not is_debug:
+        cmd += ["-loglevel", "quiet"]
+    
+    subprocess.run(cmd, check=True)
 
 
 def extract(segments: list[Segment], config):
-    video_id = config.get("video_id")
+    video_id   = config.get("video_id")
     video_path = config.get("video_path")
-    is_debug = config.get("is_debug")
+    is_debug   = config.get("is_debug")
+    audio_ext  = config.get("audio_ext")
+    image_ext  = config.get("image_ext")
 
     if config.get("is_dry"):
         print("[yellow][DRY][/]", "Skipped.")
@@ -133,33 +155,41 @@ def extract(segments: list[Segment], config):
     existing_files = set(os.listdir(out_dir))
     media_files = []
 
+    tasks = []
+    for seg in segments:
+        start = seg.start
+        end   = seg.end
+        delta = seg.delta
+
+        image_name = get_media_filename(video_id, start, end, image_ext)
+        audio_name = get_media_filename(video_id, start, end, audio_ext)
+        seg_image_path = os.path.join(out_dir, image_name)
+        seg_audio_path = os.path.join(out_dir, audio_name)
+        media_files.append(seg_image_path)
+        media_files.append(seg_audio_path)
+
+        ss = str(start.total_seconds())
+        t = str(delta.total_seconds())
+
+        if not image_name in existing_files:
+            tasks.append((
+                extract_seg_image,
+                video_path, seg_image_path, ss, is_debug))
+        
+        if not audio_name in existing_files:
+            tasks.append((
+                extract_seg_audio,
+                audio_path, seg_audio_path, ss, t, is_debug))
+
     cpu_count = multiprocessing.cpu_count()
     max_workers = max(1, min(cpu_count // 2, 4)) 
 
     print("[cyan][INFO][/]", "Extracting for each segment...")
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
         try:
-            futures = []
-            for seg in segments:
-                start = seg.start
-                end   = seg.end
-                delta = seg.delta
-                base_name = f"{video_id}_{format_time(start)}-{format_time(end)}"
-                seg_image_path = os.path.join(out_dir, f"{base_name}.jpg")
-                seg_audio_path = os.path.join(out_dir, f"{base_name}.mp3")
-                media_files.append(seg_image_path)
-                media_files.append(seg_audio_path)
+            futures = [ex.submit(*task) for task in tasks]
 
-                ss = str(start.total_seconds())
-                t = str(delta.total_seconds())
-
-                if seg_image_path in existing_files and seg_audio_path in existing_files:
-                    continue
-                
-                f = executor.submit(extract_segment, ss, t, video_path, audio_path, seg_image_path, seg_audio_path, is_debug)
-                futures.append(f)
-
-            for f in track(as_completed(futures), description="Extracting", total=len(futures)):
+            for f in track(as_completed(futures), total=len(futures), description=""):
                 try:
                     f.result()
                 except Exception as e:
@@ -167,8 +197,7 @@ def extract(segments: list[Segment], config):
 
         except KeyboardInterrupt:
             print("[red][ERROR][/]", "Shutting down...")
-            executor.shutdown(wait=False, cancel_futures=True)
+            ex.shutdown(wait=False, cancel_futures=True)
             sys.exit(1)
 
     return media_files
-

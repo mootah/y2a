@@ -41,12 +41,12 @@
   </div>
   {{/target}}
   <!-- -->
-  {{#notes}}
+  {{#memos}}
   <hr />
   <div class="section">
-    <div class="sectionBody">{{notes}}</div>
+    <div class="sectionBody">{{memos}}</div>
   </div>
-  {{/notes}}
+  {{/memos}}
   <!-- -->
   <hr />
   <div class="section">

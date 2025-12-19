@@ -1,7 +1,10 @@
+from datetime import timedelta
 from rich.console import Console
 from rich.table import Table
-from y2a.utils import get_spacy_document
-from y2a.splitter import split_by_semantics
+from y2a.utils import (
+    format_time,
+    get_spacy_document,
+)
 
 def show_tokens(doc):
     table = Table(show_header=True, header_style="bold magenta")
@@ -29,14 +32,9 @@ def main():
     }
     # doc = get_spacy_document("But, you know, honestly though, I have to say, like, last time I always had the air conditioning on during the summer and I didn't get charged more than, you know, the usual rent.", config)
 
-    doc = get_spacy_document("And when I talked to him, he was like, \"Oh, you're pretty cool. You should come to my house.\" now we're going to go play at his house, I guess. I just wanted to be sure that you were there with me when I went for the first time.", config)
-
-    sentences = split_by_semantics(doc, config)
+    # doc = get_spacy_document("And when I talked to him, he was like, \"Oh, you're pretty cool. You should come to my house.\" now we're going to go play at his house, I guess. I just wanted to be sure that you were there with me when I went for the first time.", config)
+    # show_tokens(doc)
     
-    for s in sentences:
-        print(s)
-
-    show_tokens(doc)
 
 if __name__ == "__main__":
     main()

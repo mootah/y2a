@@ -84,34 +84,34 @@ y2a video_id --max_duration 5000 --min_words 3
 ### フィールド（Field）
 
 - `id`
-  - `{VIDEO_ID}_{HH.mm.ss.mmm}-{HH.mm.ss.mmm}`
+  - `{VIDEO_ID}_{START}-{END}`
 - `sentence`
   - 切り出されたセリフ
 - `translation`
   - （空欄）
-- `notes`
+- `target`
+  - （空欄）
+- `memos`
   - （空欄）
 - `audio`
-  - 音声 `[sound: {id}.mp3]`
+  - 音声 `[sound: y2a-{id}.webm]`
 - `audio_file`
-  - 音声（HTML Audio 用） `{id}.mp3`
+  - 音声（HTML Audio 用） `y2a-{id}.webm`
 - `image`
-  - スクリーンショット `<img scr="{id}.jpg">`
+  - スクリーンショット `<img scr="y2a-{id}.webp">`
 - `url`
   - タイムスタンプ付きの YouTube の URL
 
 ### テンプレート（Template）
 
 - 表
-  - `image`
   - `audio`
+  - `image`
 - 裏
   - `sentence`
-  - `audio`
   - `translation`
-  - `notes`
+  - `audio`
   - `image`
+  - `target`
+  - `memos`
   - `url`
-
-<img alt="front" src="https://i.gyazo.com/0a6c164d7358ffce9c89386710d7f99b.png" width="400">
-<img alt="back" src="https://i.gyazo.com/ce9f9a5551d9ab114b6ba37f9b01ed1f.png" width="400">

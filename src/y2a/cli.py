@@ -95,7 +95,9 @@ def main(video, **args):
         "margin_end": timedelta(milliseconds=args.get("margin")[1]),
         "is_dry": args.get("dry"),
         "is_verbose": args.get("verbose"),
-        "is_debug": args.get("debug")
+        "is_debug": args.get("debug"),
+        "image_ext": "webp",
+        "audio_ext": "webm",
     }
 
     if config.get("is_debug"):
@@ -123,14 +125,14 @@ def main(video, **args):
 
     print()
     print("[green][TASK] [3/3][/]", "Generating an Anki package...")
-    cards = generate(segments, media, config)
+    notes = generate(segments, media, config)
 
     if "csv" in config.get("formats") and not config.get("is_dry"):
-        rows = [c.values() for c in cards]
+        rows = [n.values() for n in notes]
         write_in_csv(f"{video_id}/{video_id}.csv", rows)
 
     if "json" in config.get("formats") and not config.get("is_dry"):
-        write_in_json(f"{video_id}/{video_id}.json", cards)
+        write_in_json(f"{video_id}/{video_id}.json", notes)
 
 
 if __name__ == "__main__":
