@@ -1,4 +1,4 @@
-import re, html
+import sys, html
 from datetime import timedelta
 from rich import print
 from bs4 import BeautifulSoup
@@ -63,14 +63,21 @@ def merge_timedwords_into_segments(timedwords: list[TimedWord], sentences: list[
     segments: list[Segment] = []
 
     pos = 0
+    mismatched = False
     for sent in sentences:
         sent_len = len(sent.split(" "))
         result = " ".join(words[pos:pos+sent_len])
+        if mismatched:
+            print(sent)
+            print(words[pos:pos+sent_len])
+            sys.exit(1)
+
         if sent != result:
             print("[red][ERROR][/]", "Text did not match")
             print(sent)
             print(words[pos:pos+sent_len])
-            break
+            mismatched = True
+
         seg = Segment(timedwords[pos:pos+sent_len])
         segments.append(seg)
         pos += sent_len

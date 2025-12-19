@@ -21,16 +21,28 @@ def download(video_id: str, config):
     if not config.get("is_debug"):
         ydl_opts["quiet"] = True
 
-    # --skip-download
-    if config.get("is_dry") or "apkg" not in config.get("formats"):
-        ydl_opts["skip_download"] = True
-        if os.path.exists(subtitle_path):
-            print("[cyan][INFO][/]", "Skipped. Subtitle already exists.")
+    video_exists    = os.path.exists(video_path)
+    subtitle_exists = os.path.exists(subtitle_path)
+
+    if config.get("is_dry"):
+        if not subtitle_exists:
+            ydl_opts["skip_download"] = True
+        else:
+            print("[cyan][INFO][/]", "Skipped. Already exists.")
+            return
+    elif "apkg" in config.get("formats"):
+        if not video_exists:
+            ydl_opts["format"] = video_format_id
+        elif not subtitle_exists:
+            ydl_opts["skip_download"] = True
+        else:
+            print("[cyan][INFO][/]", "Skipped. Already exists.")
             return
     else:
-        ydl_opts["format"] = video_format_id
-        if os.path.exists(video_path):
-            print("[cyan][INFO][/]", "Skipped. Video already exists.")
+        if not subtitle_exists:
+            ydl_opts["skip_download"] = True
+        else:
+            print("[cyan][INFO][/]", "Skipped. Already exists.")
             return
 
     url = f"https://www.youtube.com/watch?v={video_id}"
